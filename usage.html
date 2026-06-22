@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Usage Metering</title>
+<style>
+body{margin:0;background:#050505;color:#f8fafc;font-family:Inter,Arial,sans-serif}main{max-width:1060px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.card{border:1px solid #27272a;background:#111;border-radius:20px;padding:18px;margin-top:14px}input,button{border:1px solid #333;background:#0b0b0b;color:#fff;border-radius:12px;padding:10px 12px}button{cursor:pointer}.muted{color:#a1a1aa}pre{white-space:pre-wrap;overflow:auto;background:#060606;border:1px solid #27272a;border-radius:16px;padding:14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid{grid-template-columns:1fr}.top{display:block}}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div><h1>Usage Metering</h1><p class="muted">Local usage view for chat, jobs, and operator simulations.</p></div><div><input id="api" value="http://127.0.0.1:8000" /><input id="user" value="local" /><button id="refresh">Refresh</button></div></div>
+<div class="grid"><div class="card"><h2>Summary</h2><pre id="summary">Loading...</pre></div><div class="card"><h2>Create event</h2><input id="type" value="chat" /><input id="qty" value="1" /><button id="record">Record</button><pre id="recordOut"></pre></div></div>
+<div class="card"><h2>Events</h2><pre id="events">Loading...</pre></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);async function req(path,opts){const base=$('api').value.replace(/\/$/,'');const res=await fetch(base+path,opts);if(!res.ok)throw new Error(path+' '+res.status);return res.json()}async function refresh(){const u=encodeURIComponent($('user').value);$('summary').textContent=JSON.stringify(await req('/usage/summary?user_id='+u),null,2);$('events').textContent=JSON.stringify(await req('/usage/events?user_id='+u),null,2)}$('refresh').onclick=refresh;$('record').onclick=async()=>{const body={user_id:$('user').value,event_type:$('type').value,quantity:Number($('qty').value),source:'usage_page',metadata:{page:'usage.html'}};$('recordOut').textContent=JSON.stringify(await req('/usage/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),null,2);await refresh()};refresh();
+</script>
+</body>
+</html>
