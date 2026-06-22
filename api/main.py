@@ -5,6 +5,7 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from api.dashboard import DashboardService
 from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
@@ -12,11 +13,12 @@ from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 app = FastAPI(title="Open GPU Privacy AI API", version=APP_VERSION)
 
 store = SchedulerStore()
+dashboard = DashboardService(store)
 memories = MemoryStore()
 ollama = OllamaAdapter()
 verifier = VerificationEngine()
@@ -77,8 +79,9 @@ def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
         "version": APP_VERSION,
-        "status": "operations-ready private AI compute network",
+        "status": "dashboard-ready private AI compute network",
         "scheduler": store.status(),
+        "dashboard": "/dashboard/summary",
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
     }
@@ -93,6 +96,21 @@ def health() -> dict:
 def ready() -> dict:
     status = store.status()
     return {"ok": True, "scheduler_store": status["store"], "db_path": status["path"]}
+
+
+@app.get("/dashboard/summary")
+def dashboard_summary() -> dict:
+    return dashboard.summary()
+
+
+@app.get("/dashboard/jobs")
+def dashboard_jobs(limit: int = 20) -> dict:
+    return dashboard.recent_jobs(limit=limit)
+
+
+@app.get("/dashboard/models")
+def dashboard_models(limit: int = 20) -> dict:
+    return dashboard.model_versions(limit=limit)
 
 
 @app.post("/nodes/register")
