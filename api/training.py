@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import uuid4
 
 
-TrainingKind = Literal["rag_import", "lora_micro", "evaluation_batch", "robot_memory_tune"]
+TrainingKind = Literal["rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"]
 
 
 @dataclass
