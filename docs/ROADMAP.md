@@ -56,14 +56,21 @@
 
 ## v0.7 Scheduler Persistence
 
-- PostgreSQL
-- Redis queue
-- Persistent node identity
-- Node reputation
-- Task retry
-- Verification workflow
+- SQLite scheduler store for local development
+- Persistent nodes, jobs, and results
+- Job assignment state
+- Job attempts and completion status
+- `/network/status` backed by persisted data
 
-## v0.8 Training
+## v0.8 Queue and Verification
+
+- Redis-style queue abstraction
+- Task retry policy
+- Node reputation rules
+- Redundant verification
+- Result scoring workflow
+
+## v0.9 Training
 
 - RAG crawler/indexer
 - Authorized data import
