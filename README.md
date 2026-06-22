@@ -5,9 +5,9 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v1.1 Operations Pack
+## v1.2 Dashboard Pack
 
-Includes the previous **v1.0 Engineering Pack** plus operations workflows.
+Includes the previous v1.1 Operations Pack plus a local dashboard.
 
 Main scope:
 
@@ -18,27 +18,26 @@ Main scope:
 - Queue and Verification
 - Training Jobs
 - Model Version Registry
+- Local Dashboard
 
-Added in v1.1:
+Added in v1.2:
 
-- `api/health.py`
+- `api/dashboard.py`
+- `GET /dashboard/summary`
+- `GET /dashboard/jobs`
+- `GET /dashboard/models`
+- `dashboard.html`
+- `tests/test_dashboard.py`
+- `docs/DASHBOARD.md`
+
+Existing operations assets:
+
 - `GET /health`
 - `GET /ready`
-- `tests/test_health_ready.py`
 - `scripts/queue_maintenance.py`
 - `scripts/demo_training_flow.py`
 - `docs/OPERATIONS.md`
 - `docs/DEVELOPER_HANDOFF.md`
-- `docs/CHANGELOG.md`
-
-Existing engineering assets:
-
-- `Dockerfile`
-- `docker-compose.yml`
-- `Makefile`
-- `tests/test_api_contract.py`
-- `docs/API.md`
-- `docs/SECURITY.md`
 
 ## Core Positioning
 
@@ -61,6 +60,20 @@ In another terminal:
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
 ```
 
+## Dashboard
+
+Open:
+
+```text
+dashboard.html
+```
+
+The dashboard reads:
+
+```text
+http://127.0.0.1:8000/dashboard/summary
+```
+
 ## Makefile
 
 ```bash
@@ -78,15 +91,6 @@ make demo-training
 
 ```bash
 docker compose up --build
-```
-
-## Operations
-
-```bash
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/ready
-python scripts/queue_maintenance.py --api-url http://127.0.0.1:8000
-python scripts/demo_training_flow.py --api-url http://127.0.0.1:8000
 ```
 
 ## Enable Real Local AI
