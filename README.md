@@ -5,25 +5,27 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v1.5 Usage Metering Pack
+## v1.6 Scheduler Intelligence Pack
 
-Includes v1.4 Reputation Pack plus local event metering.
+Includes v1.5 Usage Metering Pack plus capability-aware job routing.
 
-Added in v1.5:
+Added in v1.6:
 
-- `api/usage_store.py`
-- `POST /usage/events`
-- `GET /usage/events`
-- `GET /usage/summary`
-- `usage.html`
-- `scripts/simulate_usage.py`
-- `scripts/export_usage.py`
-- `docs/METERING.md`
-- `tests/test_usage.py`
-- `tests/test_usage_api.py`
+- `api/task_router.py`
+- capability-aware `SchedulerStore.next_job()`
+- GPU jobs skip CPU-only nodes
+- priority-based queued job selection
+- memory and CPU matching
+- `scripts/seed_routing_demo.py`
+- `scripts/route_preview.py`
+- `routing.html`
+- `docs/SCHEDULER_INTELLIGENCE.md`
+- `tests/test_task_router.py`
+- `tests/test_scheduler_routing.py`
 
 Existing packs:
 
+- v1.5 Usage Metering Pack
 - v1.4 Reputation Pack
 - v1.3 Node Identity Pack
 - v1.2 Dashboard Pack
@@ -35,7 +37,7 @@ Main scope:
 - Open GPU Network
 - Private AI Runtime
 - Node Client
-- Scheduler
+- Scheduler Intelligence
 - Queue and Verification
 - Training Jobs
 - Model Version Registry
@@ -62,6 +64,19 @@ In another terminal:
 
 ```bash
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
+```
+
+## Scheduler Intelligence
+
+```bash
+python scripts/seed_routing_demo.py
+python scripts/route_preview.py --node-id node_route_gpu
+```
+
+Open:
+
+```text
+routing.html
 ```
 
 ## Usage Metering
@@ -99,12 +114,6 @@ Open:
 
 ```text
 dashboard.html
-```
-
-The dashboard reads:
-
-```text
-http://127.0.0.1:8000/dashboard/summary
 ```
 
 ## Docker
