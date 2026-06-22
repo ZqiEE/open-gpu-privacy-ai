@@ -5,9 +5,27 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v1.2 Dashboard Pack
+## v1.3 Node Identity Pack
 
-Includes the previous v1.1 Operations Pack and **v1.0 Engineering Pack** plus a local dashboard.
+Includes v1.2 Dashboard Pack plus persistent node identity.
+
+Added in v1.3:
+
+- `node_client/identity.py`
+- `runtime_data/node_identity.json`
+- `scripts/show_node_identity.py`
+- `docs/NODE_IDENTITY.md`
+- `tests/test_local_identity.py`
+- `tests/test_node_registry.py`
+- `GET /nodes`
+- `GET /dashboard/nodes`
+- `POST /nodes/register` can reuse an existing `node_id`
+
+Existing packs:
+
+- v1.2 Dashboard Pack
+- v1.1 Operations Pack
+- **v1.0 Engineering Pack**
 
 Main scope:
 
@@ -19,31 +37,6 @@ Main scope:
 - Training Jobs
 - Model Version Registry
 - Local Dashboard
-
-Added in v1.2:
-
-- `api/dashboard.py`
-- `GET /dashboard/summary`
-- `GET /dashboard/jobs`
-- `GET /dashboard/models`
-- `dashboard.html`
-- `tests/test_dashboard.py`
-- `docs/DASHBOARD.md`
-
-Existing engineering and operations assets:
-
-- `Dockerfile`
-- `docker-compose.yml`
-- `Makefile`
-- `tests/test_api_contract.py`
-- `docs/API.md`
-- `docs/SECURITY.md`
-- `GET /health`
-- `GET /ready`
-- `scripts/queue_maintenance.py`
-- `scripts/demo_training_flow.py`
-- `docs/OPERATIONS.md`
-- `docs/DEVELOPER_HANDOFF.md`
 
 ## Core Positioning
 
@@ -64,6 +57,13 @@ In another terminal:
 
 ```bash
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
+```
+
+## Node Identity
+
+```bash
+python scripts/show_node_identity.py
+python node_client/client.py --api-url http://127.0.0.1:8000 --identity-path runtime_data/node_identity.json
 ```
 
 ## Dashboard
