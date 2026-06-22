@@ -12,13 +12,15 @@ from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.reputation import ReputationService
 from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
+from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 
 app = FastAPI(title="Open GPU Privacy AI API", version=APP_VERSION)
 
 store = SchedulerStore()
+usage_store = UsageStore()
 dashboard = DashboardService(store)
 reputation = ReputationService(store)
 memories = MemoryStore()
@@ -77,15 +79,24 @@ class MemoryRequest(BaseModel):
     user_id: str = "local"
 
 
+class UsageEventRequest(BaseModel):
+    user_id: str = "local"
+    event_type: str
+    quantity: float = Field(default=1.0, ge=0)
+    source: str = "api"
+    metadata: dict = Field(default_factory=dict)
+
+
 @app.get("/")
 def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
         "version": APP_VERSION,
-        "status": "reputation-ready private AI compute network",
+        "status": "usage-metered private AI compute network",
         "scheduler": store.status(),
         "dashboard": "/dashboard/summary",
         "reputation": "/reputation/leaderboard",
+        "usage": "/usage/summary",
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
     }
@@ -130,6 +141,22 @@ def reputation_leaderboard(limit: int = 20) -> dict:
 @app.get("/reputation/summary")
 def reputation_summary() -> dict:
     return reputation.summary()
+
+
+@app.post("/usage/events")
+def record_usage(body: UsageEventRequest) -> dict:
+    event = usage_store.record(body.user_id, body.event_type, body.quantity, body.source, body.metadata)
+    return {"ok": True, "event": event}
+
+
+@app.get("/usage/events")
+def list_usage_events(user_id: str | None = None, limit: int = 100) -> dict:
+    return {"events": usage_store.list_events(user_id=user_id, limit=limit)}
+
+
+@app.get("/usage/summary")
+def usage_summary(user_id: str = "local") -> dict:
+    return usage_store.summary(user_id)
 
 
 @app.post("/nodes/register")
@@ -224,6 +251,7 @@ def ai_chat(body: ChatRequest) -> dict:
     if body.remember:
         memories.add(f"User asked in {body.mode} mode: {body.prompt[:180]}", body.user_id)
         memory = memories.list(body.user_id)
+    usage_store.record(body.user_id, "chat", 1.0, "ai_chat", {"mode": body.mode})
     try:
         reply = ollama.chat(body.prompt, mode=body.mode, memory=memory)
         provider = "ollama"
@@ -237,7 +265,7 @@ def ai_chat(body: ChatRequest) -> dict:
         error = str(exc)
     else:
         error = None
-    return {"provider": provider, "mode": body.mode, "reply": reply, "error": error, "memory_items": len(memory)}
+    return {"provider": provider, "mode": body.mode, "reply": reply, "error": error, "memory_items": len(memory), "usage": usage_store.summary(body.user_id)}
 
 
 @app.get("/memory")
