@@ -7,7 +7,7 @@ A local MVP for a **user-owned GPU network for private AI**. Users contribute id
 
 ## v1.2 Dashboard Pack
 
-Includes the previous v1.1 Operations Pack plus a local dashboard.
+Includes the previous v1.1 Operations Pack and **v1.0 Engineering Pack** plus a local dashboard.
 
 Main scope:
 
@@ -30,8 +30,14 @@ Added in v1.2:
 - `tests/test_dashboard.py`
 - `docs/DASHBOARD.md`
 
-Existing operations assets:
+Existing engineering and operations assets:
 
+- `Dockerfile`
+- `docker-compose.yml`
+- `Makefile`
+- `tests/test_api_contract.py`
+- `docs/API.md`
+- `docs/SECURITY.md`
 - `GET /health`
 - `GET /ready`
 - `scripts/queue_maintenance.py`
