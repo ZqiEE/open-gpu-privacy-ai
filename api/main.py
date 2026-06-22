@@ -11,7 +11,7 @@ from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.verification import VerificationEngine
 
-app = FastAPI(title="Open GPU Privacy AI API", version="0.9.0")
+app = FastAPI(title="Open GPU Privacy AI API", version="0.9.1")
 
 store = SchedulerStore()
 memories = MemoryStore()
@@ -59,7 +59,7 @@ class ModelVersionRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     prompt: str
-    mode: Literal["standard", "open", "creative", "private_companion"] = "open"
+    mode: Literal["standard", "open", "creative", "private_work"] = "open"
     user_id: str = "local"
     remember: bool = False
 
@@ -73,8 +73,8 @@ class MemoryRequest(BaseModel):
 def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
-        "version": "0.9.0",
-        "status": "training jobs skeleton",
+        "version": "0.9.1",
+        "status": "focused private AI compute network",
         "scheduler": store.status(),
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
@@ -137,7 +137,7 @@ def create_training_job(body: TrainingJobRequest) -> dict:
 
 @app.get("/training/jobs")
 def list_training_jobs(limit: int = 50) -> dict:
-    jobs = [job for job in store.list_jobs(limit=limit) if job["type"] in {"rag_import", "lora_micro", "evaluation_batch", "robot_memory_tune"}]
+    jobs = [job for job in store.list_jobs(limit=limit) if job["type"] in {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}]
     return {"jobs": jobs}
 
 
@@ -176,7 +176,7 @@ def ai_chat(body: ChatRequest) -> dict:
         reply = (
             "Ollama is not available yet, so this is the fallback local runtime reply. "
             "Start Ollama and pull a model to enable real local AI. "
-            "The scheduler now supports training jobs and model version registration."
+            "This project is focused on a private AI compute network, node scheduling, and training jobs."
         )
         error = str(exc)
     else:
