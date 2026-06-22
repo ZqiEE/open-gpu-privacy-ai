@@ -2,7 +2,7 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install validate test api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit clean
+.PHONY: install validate test api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -60,6 +60,12 @@ chain-export:
 
 chain-submit:
 	$(PYTHON) scripts/simulate_chain_submit.py
+
+model-demo:
+	$(PYTHON) scripts/seed_distributed_model_demo.py
+
+model-report:
+	$(PYTHON) scripts/model_report.py
 
 clean:
 	rm -rf runtime_data .pytest_cache __pycache__ api/__pycache__ node_client/__pycache__ tests/__pycache__
