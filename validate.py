@@ -10,11 +10,11 @@ assert readme.exists(), "README.md is missing"
 html = index.read_text(encoding="utf-8")
 required = [
     "Open GPU Privacy AI",
-    "贡献 GPU 免费用",
-    "不开节点，付费使用",
-    "阅后即焚",
-    "训练引擎",
-    "机器人记忆",
+    "Run a node. Use private AI for free.",
+    "Contribute GPU, use free",
+    "Use paid mode",
+    "Training Engine",
+    "Robot",
     "RAG",
     "LoRA",
 ]
