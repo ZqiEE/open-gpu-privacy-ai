@@ -2,7 +2,7 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install validate test api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report clean
+.PHONY: install validate test api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -45,6 +45,12 @@ data-demo:
 
 data-report:
 	$(PYTHON) scripts/corpus_report.py
+
+ledger-demo:
+	$(PYTHON) scripts/seed_decentralized_network_demo.py
+
+ledger-report:
+	$(PYTHON) scripts/decentralized_ledger_report.py
 
 clean:
 	rm -rf runtime_data .pytest_cache __pycache__ api/__pycache__ node_client/__pycache__ tests/__pycache__
