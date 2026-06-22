@@ -13,7 +13,7 @@ from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 
 app = FastAPI(title="Open GPU Privacy AI API", version=APP_VERSION)
 
@@ -26,6 +26,7 @@ training = TrainingPlanner()
 
 
 class NodeRegister(BaseModel):
+    node_id: str | None = None
     device_name: str
     cpu_threads: int = Field(ge=1)
     memory_gb: float = Field(ge=0)
@@ -79,7 +80,7 @@ def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
         "version": APP_VERSION,
-        "status": "dashboard-ready private AI compute network",
+        "status": "node-identity private AI compute network",
         "scheduler": store.status(),
         "dashboard": "/dashboard/summary",
         "ollama_base_url": ollama.config.base_url,
@@ -113,9 +114,19 @@ def dashboard_models(limit: int = 20) -> dict:
     return dashboard.model_versions(limit=limit)
 
 
+@app.get("/dashboard/nodes")
+def dashboard_nodes(limit: int = 20) -> dict:
+    return {"nodes": store.list_nodes(limit=limit)}
+
+
 @app.post("/nodes/register")
 def register_node(body: NodeRegister) -> dict:
     return store.register_node(body.model_dump())
+
+
+@app.get("/nodes")
+def list_nodes(limit: int = 50) -> dict:
+    return {"nodes": store.list_nodes(limit=limit)}
 
 
 @app.post("/nodes/heartbeat")
