@@ -64,18 +64,20 @@
 
 ## v0.8 Queue and Verification
 
-- Redis-style queue abstraction
-- Task retry policy
-- Node reputation rules
-- Redundant verification
-- Result scoring workflow
+- Lightweight verification engine
+- Verification records in SQLite
+- Failed-job retry endpoint
+- Stale assigned job requeue endpoint
+- Verification status endpoint
+- Trust adjustment after result scoring
 
-## v0.9 Training
+## v0.9 Training Jobs
 
 - RAG crawler/indexer
 - Authorized data import
-- LoRA/QLoRA jobs
+- LoRA/QLoRA job schema
 - Model version registry
+- Training job lifecycle
 
 ## v1.0 Robot SDK
 
