@@ -28,34 +28,40 @@
 - Waitlist page
 - More realistic build path
 
-## v0.4 Local AI Runtime
+## v0.4 Local Runtime Skeleton
+
+- FastAPI scheduler/API skeleton
+- Local node client simulation
+- requirements.txt
+- Local runtime guide
+- Node register / heartbeat / job dispatch / result submit endpoints
+
+## v0.5 Local AI Runtime
 
 - Ollama adapter
 - Qwen/Llama local inference
 - Local memory persistence
-- Basic local API endpoint
+- `/ai/chat` connected to a real local model
 - Optional Stable Diffusion worker
 
-## v0.5 Node Client
+## v0.6 Node Client
 
-- Python/Rust node
 - GPU detection
 - Resource throttling
-- Heartbeat
-- Task execution
+- Heartbeat stability
+- Task execution sandbox
 - Auto retry
 - Local logs
 
-## v0.6 Scheduler
+## v0.7 Scheduler
 
-- FastAPI scheduler
 - PostgreSQL
 - Redis queue
 - Node reputation
 - Task retry
 - Verification workflow
 
-## v0.7 Training
+## v0.8 Training
 
 - RAG crawler/indexer
 - Authorized data import
