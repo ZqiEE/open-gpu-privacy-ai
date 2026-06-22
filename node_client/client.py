@@ -12,6 +12,7 @@ from node_client.device import detect_device
 from node_client.identity import NodeIdentity
 from node_client.job_runner import JobRunner
 from node_client.resource_guard import ResourceGuard, ResourceLimits
+from node_client.task_policy import TaskPolicy
 
 
 @dataclass
@@ -23,6 +24,8 @@ class NodeConfig:
     min_free_memory_gb: float
     log_dir: Path
     identity_path: Path
+    max_payload_bytes: int
+    max_runtime_seconds: float
 
 
 def setup_logging(log_dir: Path) -> None:
@@ -79,7 +82,7 @@ def submit_result(config: NodeConfig, node_id: str, result: dict) -> None:
 def worker_loop(config: NodeConfig) -> None:
     setup_logging(config.log_dir)
     guard = ResourceGuard(ResourceLimits(config.max_cpu_percent, config.min_free_memory_gb))
-    runner = JobRunner()
+    runner = JobRunner(TaskPolicy.default().__class__(TaskPolicy.default().allowed_job_types, config.max_payload_bytes, config.max_runtime_seconds))
     node_id = register_node(config)
     while True:
         try:
@@ -99,7 +102,7 @@ def worker_loop(config: NodeConfig) -> None:
             result = asdict(runner.run(job))
             submit_result(config, node_id, result)
             heartbeat(config, node_id, "idle")
-            logging.info("submitted job id=%s status=%s", result["job_id"], result["status"])
+            logging.info("submitted job id=%s status=%s reason=%s", result["job_id"], result["status"], result.get("policy_reason"))
         except KeyboardInterrupt:
             logging.info("node stopped by user")
             heartbeat(config, node_id, "offline")
@@ -118,6 +121,8 @@ def main() -> None:
     parser.add_argument("--min-free-memory-gb", type=float, default=1.5)
     parser.add_argument("--log-dir", default="runtime_data/logs")
     parser.add_argument("--identity-path", default="runtime_data/node_identity.json")
+    parser.add_argument("--max-payload-bytes", type=int, default=16384)
+    parser.add_argument("--max-runtime-seconds", type=float, default=10.0)
     args = parser.parse_args()
     worker_loop(
         NodeConfig(
@@ -128,6 +133,8 @@ def main() -> None:
             min_free_memory_gb=args.min_free_memory_gb,
             log_dir=Path(args.log_dir),
             identity_path=Path(args.identity_path),
+            max_payload_bytes=args.max_payload_bytes,
+            max_runtime_seconds=args.max_runtime_seconds,
         )
     )
 
