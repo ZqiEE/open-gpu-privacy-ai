@@ -5,13 +5,16 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.verification import VerificationEngine
 
-app = FastAPI(title="Open GPU Privacy AI API", version="0.9.1")
+APP_VERSION = "1.1.0"
+
+app = FastAPI(title="Open GPU Privacy AI API", version=APP_VERSION)
 
 store = SchedulerStore()
 memories = MemoryStore()
@@ -73,12 +76,23 @@ class MemoryRequest(BaseModel):
 def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
-        "version": "0.9.1",
-        "status": "focused private AI compute network",
+        "version": APP_VERSION,
+        "status": "operations-ready private AI compute network",
         "scheduler": store.status(),
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
     }
+
+
+@app.get("/health")
+def health() -> dict:
+    return get_health(APP_VERSION)
+
+
+@app.get("/ready")
+def ready() -> dict:
+    status = store.status()
+    return {"ok": True, "scheduler_store": status["store"], "db_path": status["path"]}
 
 
 @app.post("/nodes/register")
