@@ -5,6 +5,23 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
+## v2.3 Distributed Model Registry Pack
+
+Added:
+
+- `api/model_package.py`
+- `api/distributed_model_registry.py`
+- `api/model_node_inventory.py`
+- `api/model_router.py`
+- `scripts/seed_distributed_model_demo.py`
+- `scripts/model_report.py`
+- `tests/test_model_package.py`
+- `tests/test_distributed_model_registry.py`
+- `tests/test_model_node_inventory.py`
+- `tests/test_model_router.py`
+- `make model-demo`
+- `make model-report`
+
 ## v2.2 Chain Adapter Pack
 
 Added:
@@ -23,25 +40,12 @@ Added:
 - `make chain-export`
 - `make chain-submit`
 
-## v2.1 Decentralized AI Ledger Pack
+## Model Registry Demo
 
-Added:
-
-- `api/content_addressing.py`
-- `api/decentralized_identity.py`
-- `api/contribution_ledger.py`
-- `api/task_proof.py`
-- `api/network_validator.py`
-- `api/model_commit_registry.py`
-- `scripts/seed_decentralized_network_demo.py`
-- `scripts/decentralized_ledger_report.py`
-- `docs/DECENTRALIZED_AI.md`
-- `tests/test_decentralized_identity.py`
-- `tests/test_contribution_ledger.py`
-- `tests/test_task_proof_validator.py`
-- `tests/test_model_commit_registry.py`
-- `make ledger-demo`
-- `make ledger-report`
+```bash
+make model-demo
+make model-report
+```
 
 ## Chain Adapter Demo
 
