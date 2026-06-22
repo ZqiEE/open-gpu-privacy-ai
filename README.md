@@ -5,19 +5,20 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.8 Update
+## v0.9 Update
 
-v0.8 adds queue recovery and verification.
+v0.9 adds training jobs and model version registration.
 
 ### What changed
 
-- Added `api/verification.py`: lightweight result verification engine
-- Updated `api/storage.py`: verification records, failed-job retry, stale-job requeue
-- Updated `api/main.py`: `/jobs/result` now records verification results
-- Added `POST /jobs/retry-failed`
-- Added `POST /jobs/requeue-stale`
-- Added `GET /verification/status`
-- Added `docs/VERIFICATION.md`
+- Added `api/training.py`: training job planner
+- Updated `api/storage.py`: model version registry and custom training jobs
+- Updated `api/main.py`: training and model version APIs
+- Added `POST /training/jobs`
+- Added `GET /training/jobs`
+- Added `POST /models/versions`
+- Added `GET /models/versions`
+- Added `docs/TRAINING.md`
 
 ## Core Positioning
 
@@ -31,6 +32,7 @@ Users contribute local compute. The network gets lower-cost AI inference, fine-t
 index.html                    # English-first product MVP
 api/main.py                   # FastAPI API using persistent scheduler store
 api/storage.py                # SQLite scheduler persistence and queue recovery
+api/training.py               # Training job planner
 api/verification.py           # Lightweight verification engine
 api/ollama_adapter.py         # Optional Ollama local AI adapter
 api/memory_store.py           # Local JSON memory storage
@@ -38,13 +40,12 @@ node_client/client.py         # Hardened local node client
 node_client/device.py         # Device and GPU detection
 node_client/resource_guard.py # CPU/memory resource guard
 node_client/job_runner.py     # Simulated sandboxed job runner
-docs/ARCHITECTURE.md          # Architecture notes
-docs/ROADMAP.md               # Product roadmap
-docs/LOCAL_RUNTIME.md         # Local runtime instructions
-docs/OLLAMA.md                # Ollama setup guide
-docs/NODE_CLIENT.md           # Node client guide
-docs/SCHEDULER.md             # Scheduler persistence guide
+docs/TRAINING.md              # Training jobs guide
 docs/VERIFICATION.md          # Queue and verification guide
+docs/SCHEDULER.md             # Scheduler persistence guide
+docs/NODE_CLIENT.md           # Node client guide
+docs/OLLAMA.md                # Ollama setup guide
+docs/LOCAL_RUNTIME.md         # Local runtime instructions
 validate.py                   # Repository validation
 requirements.txt              # Python dependencies
 ```
@@ -68,11 +69,12 @@ python node_client/client.py \
   --min-free-memory-gb 1.5
 ```
 
-Check scheduler and verification:
+Create a training job:
 
 ```bash
-curl http://127.0.0.1:8000/network/status
-curl http://127.0.0.1:8000/verification/status
+curl -X POST http://127.0.0.1:8000/training/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"rag_import","name":"demo-rag","dataset_uri":"file://local/docs","base_model":"qwen2.5:3b"}'
 ```
 
 ## Enable Real Local AI
