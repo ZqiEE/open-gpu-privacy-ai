@@ -5,7 +5,19 @@
 
 A local static MVP for a **user-owned GPU network for private AI**. The product uses free access to attract users, lets users contribute idle GPU/CPU through local nodes, and turns user growth into compute growth.
 
-这是一个可以直接本地运行的静态 MVP，用来展示“用户贡献闲置 GPU/CPU 换免费 AI 使用权”的产品飞轮。
+## v0.2 Update
+
+This version is English-first for global users, developers, and investors. Chinese is kept as supporting copy.
+
+### What changed
+
+- English-first homepage and README
+- More polished global product positioning
+- New compute network dashboard
+- Better access gate: contributor mode vs paid mode
+- Training simulator upgraded with job size and node tier logic
+- Investor narrative page
+- Robot-ready memory positioning
 
 ## Core Positioning
 
@@ -22,6 +34,7 @@ Users contribute local compute. The network gets lower-cost AI inference, fine-t
 - Standard / Open / Creative / Private Companion modes
 - Ephemeral prompts, replies, chat records, and robot memory
 - Local robot memory with one-click wipe
+- Compute network dashboard
 - Training engine simulation: RAG, data cleaning, LoRA/QLoRA, task dispatch, model merge
 - Investor narrative: user growth → compute growth → lower cost → better AI → more users
 
