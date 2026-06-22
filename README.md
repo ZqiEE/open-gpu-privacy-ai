@@ -5,24 +5,22 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v1.3 Node Identity Pack
+## v1.4 Reputation Pack
 
-Includes v1.2 Dashboard Pack plus persistent node identity.
+Includes v1.3 Node Identity Pack plus reputation scoring and node leaderboard.
 
-Added in v1.3:
+Added in v1.4:
 
-- `node_client/identity.py`
-- `runtime_data/node_identity.json`
-- `scripts/show_node_identity.py`
-- `docs/NODE_IDENTITY.md`
-- `tests/test_local_identity.py`
-- `tests/test_node_registry.py`
-- `GET /nodes`
-- `GET /dashboard/nodes`
-- `POST /nodes/register` can reuse an existing `node_id`
+- `api/reputation.py`
+- `GET /reputation/leaderboard`
+- `GET /reputation/summary`
+- `scripts/export_reputation.py`
+- `docs/REPUTATION.md`
+- `tests/test_reputation.py`
 
 Existing packs:
 
+- v1.3 Node Identity Pack
 - v1.2 Dashboard Pack
 - v1.1 Operations Pack
 - **v1.0 Engineering Pack**
@@ -37,6 +35,7 @@ Main scope:
 - Training Jobs
 - Model Version Registry
 - Local Dashboard
+- Node Reputation
 
 ## Core Positioning
 
@@ -57,6 +56,14 @@ In another terminal:
 
 ```bash
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
+```
+
+## Reputation
+
+```bash
+curl http://127.0.0.1:8000/reputation/leaderboard
+curl http://127.0.0.1:8000/reputation/summary
+python scripts/export_reputation.py --api-url http://127.0.0.1:8000
 ```
 
 ## Node Identity
