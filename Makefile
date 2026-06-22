@@ -2,7 +2,7 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install validate test api node smoke maintain demo-training clean
+.PHONY: install validate test api node smoke maintain demo-training worker-check clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -27,6 +27,9 @@ maintain:
 
 demo-training:
 	$(PYTHON) scripts/demo_training_flow.py --api-url http://$(API_HOST):$(API_PORT)
+
+worker-check:
+	$(PYTHON) scripts/worker_self_check.py
 
 clean:
 	rm -rf runtime_data .pytest_cache __pycache__ api/__pycache__ node_client/__pycache__ tests/__pycache__
