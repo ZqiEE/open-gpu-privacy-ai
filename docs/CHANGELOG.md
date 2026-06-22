@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2 Dashboard Pack
+
+- Added dashboard service
+- Added dashboard API endpoints
+- Added `dashboard.html`
+- Added dashboard tests
+- Added dashboard guide
+
 ## v1.1 Operations Pack
 
 - Added `/health`
