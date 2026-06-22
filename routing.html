@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scheduler Routing</title>
+<style>
+body{margin:0;background:#050505;color:#f8fafc;font-family:Inter,Arial,sans-serif}main{max-width:1100px;margin:auto;padding:28px}.card{border:1px solid #27272a;background:#111;border-radius:20px;padding:18px;margin-top:14px}input,button{border:1px solid #333;background:#0b0b0b;color:#fff;border-radius:12px;padding:10px 12px}button{cursor:pointer}pre{white-space:pre-wrap;overflow:auto;background:#060606;border:1px solid #27272a;border-radius:16px;padding:14px}.muted{color:#a1a1aa}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}@media(max-width:800px){.top{display:block}}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div><h1>Scheduler Routing</h1><p class="muted">Preview which queued jobs match a node.</p></div><div><input id="api" value="http://127.0.0.1:8000" /><input id="node" value="node_route_gpu" /><button id="refresh">Refresh</button></div></div>
+<div class="card"><h2>Route Preview</h2><pre id="out">Loading...</pre></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);async function refresh(){try{const base=$('api').value.replace(/\/$/,'');const node=encodeURIComponent($('node').value);const res=await fetch(base+'/scheduler/route-preview?node_id='+node);if(!res.ok)throw new Error('API does not expose route preview yet. Use scripts/route_preview.py instead.');$('out').textContent=JSON.stringify(await res.json(),null,2)}catch(e){$('out').textContent=e.message+'\n\nFallback command:\npython scripts/route_preview.py --node-id '+$('node').value}}$('refresh').onclick=refresh;refresh();
+</script>
+</body>
+</html>
