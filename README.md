@@ -5,6 +5,26 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
+## v2.1 Decentralized AI Ledger Pack
+
+Added:
+
+- `api/content_addressing.py`
+- `api/decentralized_identity.py`
+- `api/contribution_ledger.py`
+- `api/task_proof.py`
+- `api/network_validator.py`
+- `api/model_commit_registry.py`
+- `scripts/seed_decentralized_network_demo.py`
+- `scripts/decentralized_ledger_report.py`
+- `docs/DECENTRALIZED_AI.md`
+- `tests/test_decentralized_identity.py`
+- `tests/test_contribution_ledger.py`
+- `tests/test_task_proof_validator.py`
+- `tests/test_model_commit_registry.py`
+- `make ledger-demo`
+- `make ledger-report`
+
 ## v2.0 Data Engine Pack
 
 Added:
@@ -21,17 +41,12 @@ Added:
 - `make data-demo`
 - `make data-report`
 
-## v1.9 Report Store Pack
+## Ledger Demo
 
-Added:
-
-- `node_client/report_store.py`
-- `scripts/list_worker_reports.py`
-- `scripts/export_worker_reports.py`
-- `docs/REPORTS.md`
-- `tests/test_report_store.py`
-- `make worker-reports`
-- `make export-reports`
+```bash
+make ledger-demo
+make ledger-report
+```
 
 ## Data Engine
 
