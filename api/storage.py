@@ -14,7 +14,7 @@ def row_to_dict(row: sqlite3.Row | None) -> dict | None:
 class SchedulerStore:
     """SQLite-backed local scheduler store.
 
-    v0.9 adds training jobs and a model version registry.
+    v1.3 adds persistent node identity and node listing.
     The same API can later be backed by PostgreSQL and Redis.
     """
 
@@ -116,17 +116,31 @@ class SchedulerStore:
         return [self._api_job(dict(row)) for row in rows]
 
     def register_node(self, body: dict[str, Any]) -> dict:
-        node_id = "node_" + uuid4().hex[:12]
+        node_id = body.get("node_id") or "node_" + uuid4().hex[:12]
         score = body["cpu_threads"] * 8 + int(body["memory_gb"] * 10) + (60 if body.get("has_gpu") else 10)
+        existing = self.get_node(node_id)
+        trust = existing.get("trust", 30) if existing else 30
         with self.connect() as conn:
             conn.execute(
                 """
-                INSERT INTO nodes (
+                INSERT OR REPLACE INTO nodes (
                     node_id, device_name, cpu_threads, memory_gb, has_gpu, gpu_name,
-                    contribution_percent, score, trust, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    contribution_percent, score, trust, status, created_at, last_seen
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM nodes WHERE node_id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)
                 """,
-                (node_id, body["device_name"], body["cpu_threads"], body["memory_gb"], 1 if body.get("has_gpu") else 0, body.get("gpu_name"), body.get("contribution_percent", 30), score, 30, "online"),
+                (
+                    node_id,
+                    body["device_name"],
+                    body["cpu_threads"],
+                    body["memory_gb"],
+                    1 if body.get("has_gpu") else 0,
+                    body.get("gpu_name"),
+                    body.get("contribution_percent", 30),
+                    score,
+                    trust,
+                    "online",
+                    node_id,
+                ),
             )
         return self.get_node(node_id) or {}
 
@@ -137,6 +151,16 @@ class SchedulerStore:
         if node:
             node["has_gpu"] = bool(node["has_gpu"])
         return node
+
+    def list_nodes(self, limit: int = 50) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute("SELECT * FROM nodes ORDER BY last_seen DESC LIMIT ?", (limit,)).fetchall()
+        nodes = []
+        for row in rows:
+            item = dict(row)
+            item["has_gpu"] = bool(item["has_gpu"])
+            nodes.append(item)
+        return nodes
 
     def update_heartbeat(self, node_id: str, status: str) -> dict | None:
         with self.connect() as conn:
