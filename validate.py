@@ -56,9 +56,16 @@ for marker in [
     "Pricing",
     "Waitlist",
     "Training Simulator",
-    "Robot Memory",
+    "Private AI Demo",
 ]:
     assert marker in html, f"missing html marker: {marker}"
+
+for banned in ["Robot", "robot"]:
+    assert banned not in html, f"unexpected robot scope in index.html: {banned}"
+
+readme_text = readme.read_text(encoding="utf-8")
+for banned in ["Robot", "robot"]:
+    assert banned not in readme_text, f"unexpected robot scope in README.md: {banned}"
 
 api_text = api.read_text(encoding="utf-8")
 for marker in [
@@ -85,8 +92,9 @@ for marker in [
     assert marker in storage_text, f"missing storage marker: {marker}"
 
 training_text = training.read_text(encoding="utf-8")
-for marker in ["TrainingPlanner", "TrainingJobSpec", "ModelVersionSpec", "rag_import", "lora_micro"]:
+for marker in ["TrainingPlanner", "TrainingJobSpec", "ModelVersionSpec", "rag_import", "lora_micro", "private_memory_tune"]:
     assert marker in training_text, f"missing training marker: {marker}"
+assert "robot_memory_tune" not in training_text
 
 verification_text = verification.read_text(encoding="utf-8")
 for marker in ["VerificationEngine", "VerificationResult", "score_result"]:
@@ -98,6 +106,6 @@ for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_loggin
 
 assert "fastapi" in requirements.read_text(encoding="utf-8")
 assert "OLLAMA_MODEL" in env_example.read_text(encoding="utf-8")
-assert html.count("<section") >= 8, "expected v0.3+ product sections"
+assert html.count("<section") >= 7, "expected focused product sections"
 
 print("Validation passed.")
