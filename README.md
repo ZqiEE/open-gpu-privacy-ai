@@ -5,6 +5,18 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
+## v1.9 Report Store Pack
+
+Added:
+
+- `node_client/report_store.py`
+- `scripts/list_worker_reports.py`
+- `scripts/export_worker_reports.py`
+- `docs/REPORTS.md`
+- `tests/test_report_store.py`
+- `make worker-reports`
+- `make export-reports`
+
 ## v1.8 Worker Reports Pack
 
 Added:
@@ -56,6 +68,9 @@ python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
 
 ```bash
 make worker-report
+make worker-reports
+make export-reports
+python -m pytest tests/test_report_store.py -q
 ```
 
 ## Worker Check
