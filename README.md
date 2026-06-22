@@ -5,6 +5,24 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
+## v2.2 Chain Adapter Pack
+
+Added:
+
+- `api/chain_adapter.py`
+- `api/local_chain_adapter.py`
+- `api/testnet_chain_adapter.py`
+- `api/object_store_adapter.py`
+- `contracts/ContributionLedger.sol`
+- `scripts/export_ledger_for_chain.py`
+- `scripts/simulate_chain_submit.py`
+- `scripts/chain_adapter_demo.py`
+- `docs/CHAIN.md`
+- `tests/test_chain_adapters.py`
+- `make chain-demo`
+- `make chain-export`
+- `make chain-submit`
+
 ## v2.1 Decentralized AI Ledger Pack
 
 Added:
@@ -25,21 +43,13 @@ Added:
 - `make ledger-demo`
 - `make ledger-report`
 
-## v2.0 Data Engine Pack
+## Chain Adapter Demo
 
-Added:
-
-- `api/source_registry.py`
-- `api/corpus_pipeline.py`
-- `api/web_document_store.py`
-- `api/corpus_search.py`
-- `api/training_candidate_store.py`
-- `scripts/seed_authorized_corpus_demo.py`
-- `scripts/corpus_report.py`
-- `tests/test_corpus_pipeline.py`
-- `tests/test_corpus_source_store.py`
-- `make data-demo`
-- `make data-report`
+```bash
+make chain-demo
+make chain-export
+make chain-submit
+```
 
 ## Ledger Demo
 
