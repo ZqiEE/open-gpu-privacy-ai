@@ -14,8 +14,8 @@ def row_to_dict(row: sqlite3.Row | None) -> dict | None:
 class SchedulerStore:
     """SQLite-backed local scheduler store.
 
-    v0.7 keeps deployment simple with SQLite so the project can run locally.
-    The same repository API can later be backed by PostgreSQL and Redis.
+    v0.8 adds queue recovery and verification records.
+    The same API can later be backed by PostgreSQL and Redis.
     """
 
     def __init__(self, path: str | Path = "runtime_data/scheduler.sqlite3") -> None:
@@ -68,6 +68,17 @@ class SchedulerStore:
                     output_summary TEXT NOT NULL,
                     submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
+
+                CREATE TABLE IF NOT EXISTS verifications (
+                    verification_id TEXT PRIMARY KEY,
+                    result_id TEXT NOT NULL,
+                    job_id TEXT NOT NULL,
+                    node_id TEXT NOT NULL,
+                    score REAL NOT NULL,
+                    passed INTEGER NOT NULL,
+                    reason TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
 
@@ -76,14 +87,12 @@ class SchedulerStore:
             ("job-rag-001", "rag_index", {"tokens": 1200}),
             ("job-eval-001", "evaluation", {"samples": 12}),
             ("job-lora-001", "lora_micro", {"steps": 20}),
+            ("job-verify-001", "verification", {"samples": 6}),
         ]
         with self.connect() as conn:
             for job_id, job_type, payload in seeds:
                 conn.execute(
-                    """
-                    INSERT OR IGNORE INTO jobs (job_id, job_type, payload_json)
-                    VALUES (?, ?, ?)
-                    """,
+                    "INSERT OR IGNORE INTO jobs (job_id, job_type, payload_json) VALUES (?, ?, ?)",
                     (job_id, job_type, json.dumps(payload)),
                 )
 
@@ -123,21 +132,13 @@ class SchedulerStore:
 
     def update_heartbeat(self, node_id: str, status: str) -> dict | None:
         with self.connect() as conn:
-            conn.execute(
-                "UPDATE nodes SET status = ?, last_seen = CURRENT_TIMESTAMP WHERE node_id = ?",
-                (status, node_id),
-            )
+            conn.execute("UPDATE nodes SET status = ?, last_seen = CURRENT_TIMESTAMP WHERE node_id = ?", (status, node_id))
         return self.get_node(node_id)
 
     def next_job(self, node_id: str) -> dict | None:
         with self.connect() as conn:
             row = conn.execute(
-                """
-                SELECT * FROM jobs
-                WHERE status = 'queued'
-                ORDER BY created_at ASC
-                LIMIT 1
-                """
+                "SELECT * FROM jobs WHERE status = 'queued' ORDER BY attempts ASC, created_at ASC LIMIT 1"
             ).fetchone()
             if not row:
                 return None
@@ -161,10 +162,7 @@ class SchedulerStore:
         result_id = "result_" + uuid4().hex[:12]
         with self.connect() as conn:
             conn.execute(
-                """
-                INSERT INTO results (result_id, node_id, job_id, status, output_summary)
-                VALUES (?, ?, ?, ?, ?)
-                """,
+                "INSERT INTO results (result_id, node_id, job_id, status, output_summary) VALUES (?, ?, ?, ?, ?)",
                 (result_id, body["node_id"], body["job_id"], body["status"], body["output_summary"]),
             )
             conn.execute(
@@ -172,16 +170,69 @@ class SchedulerStore:
                 ("done" if body["status"] == "ok" else "failed", body["job_id"]),
             )
             if body["status"] == "ok":
-                conn.execute(
-                    "UPDATE nodes SET trust = MIN(trust + 1, 100) WHERE node_id = ?",
-                    (body["node_id"],),
-                )
+                conn.execute("UPDATE nodes SET trust = MIN(trust + 1, 100) WHERE node_id = ?", (body["node_id"],))
+            else:
+                conn.execute("UPDATE nodes SET trust = MAX(trust - 2, 0) WHERE node_id = ?", (body["node_id"],))
         return self.get_result(result_id) or {}
 
     def get_result(self, result_id: str) -> dict | None:
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM results WHERE result_id = ?", (result_id,)).fetchone()
         return row_to_dict(row)
+
+    def record_verification(self, result: dict, score: float, passed: bool, reason: str) -> dict:
+        verification_id = "verify_" + uuid4().hex[:12]
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO verifications (verification_id, result_id, job_id, node_id, score, passed, reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    verification_id,
+                    result["result_id"],
+                    result["job_id"],
+                    result["node_id"],
+                    score,
+                    1 if passed else 0,
+                    reason,
+                ),
+            )
+            if passed:
+                conn.execute("UPDATE nodes SET trust = MIN(trust + 1, 100) WHERE node_id = ?", (result["node_id"],))
+            else:
+                conn.execute("UPDATE nodes SET trust = MAX(trust - 3, 0) WHERE node_id = ?", (result["node_id"],))
+        return self.get_verification(verification_id) or {}
+
+    def get_verification(self, verification_id: str) -> dict | None:
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM verifications WHERE verification_id = ?", (verification_id,)).fetchone()
+        item = row_to_dict(row)
+        if item:
+            item["passed"] = bool(item["passed"])
+        return item
+
+    def retry_failed_jobs(self, max_attempts: int = 3) -> dict:
+        with self.connect() as conn:
+            cur = conn.execute(
+                "UPDATE jobs SET status = 'queued', assigned_to = NULL, assigned_at = NULL, finished_at = NULL WHERE status = 'failed' AND attempts < ?",
+                (max_attempts,),
+            )
+        return {"requeued_failed_jobs": cur.rowcount, "max_attempts": max_attempts}
+
+    def requeue_stale_assigned(self, older_than_minutes: int = 30) -> dict:
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE jobs
+                SET status = 'queued', assigned_to = NULL, assigned_at = NULL
+                WHERE status = 'assigned'
+                AND assigned_at IS NOT NULL
+                AND assigned_at < datetime('now', ?)
+                """,
+                (f"-{older_than_minutes} minutes",),
+            )
+        return {"requeued_stale_jobs": cur.rowcount, "older_than_minutes": older_than_minutes}
 
     def status(self) -> dict:
         with self.connect() as conn:
@@ -191,6 +242,8 @@ class SchedulerStore:
             done = conn.execute("SELECT COUNT(*) FROM jobs WHERE status = 'done'").fetchone()[0]
             failed = conn.execute("SELECT COUNT(*) FROM jobs WHERE status = 'failed'").fetchone()[0]
             results = conn.execute("SELECT COUNT(*) FROM results").fetchone()[0]
+            verifications = conn.execute("SELECT COUNT(*) FROM verifications").fetchone()[0]
+            passed = conn.execute("SELECT COUNT(*) FROM verifications WHERE passed = 1").fetchone()[0]
         return {
             "nodes": nodes,
             "queued_jobs": queued,
@@ -198,6 +251,8 @@ class SchedulerStore:
             "done_jobs": done,
             "failed_jobs": failed,
             "submitted_results": results,
+            "verifications": verifications,
+            "passed_verifications": passed,
             "store": "sqlite",
             "path": str(self.path),
         }
