@@ -1,56 +1,61 @@
 # Open GPU Privacy AI MVP
 
+> Run a node, use private AI for free. No node, use paid mode.  
 > 开节点，免费用隐私 AI；不开节点，付费用。
+
+A local static MVP for a **user-owned GPU network for private AI**. The product uses free access to attract users, lets users contribute idle GPU/CPU through local nodes, and turns user growth into compute growth.
 
 这是一个可以直接本地运行的静态 MVP，用来展示“用户贡献闲置 GPU/CPU 换免费 AI 使用权”的产品飞轮。
 
-## 核心定位
+## Core Positioning
 
 **The user-owned GPU network for private AI.**
 
-用户贡献电脑算力，平台获得低成本 AI 推理、微调和数据处理能力；用户获得免费 AI 使用权。不开节点的用户可以付费使用。
+Users contribute local compute. The network gets lower-cost AI inference, fine-tuning, evaluation, and data processing capacity. Contributors unlock free AI usage. Non-contributors can use paid mode.
 
-## MVP 功能
+## MVP Features
 
-- 贡献 GPU 免费用 / 不贡献则付费使用
-- 节点贡献比例、节点评分、节点信誉模拟
-- 隐私 AI 聊天体验
-- 标准模式 / 开放模式 / 创作模式 / 私密陪伴模式
-- Prompt、结果、聊天记录阅后即焚
-- 本地机器人记忆库
-- 机器人记忆一键清空
-- 训练引擎模拟：RAG、数据清洗、LoRA/QLoRA、节点分发、模型合并
-- 融资叙事页：用户增长 → GPU 增长 → 成本下降 → AI 更强 → 更多用户
+- Contributor mode: run a GPU/CPU node and use AI for free
+- Paid mode: use AI without running a node
+- Node share slider, device score, trust score, task simulation
+- Private AI chat demo
+- Standard / Open / Creative / Private Companion modes
+- Ephemeral prompts, replies, chat records, and robot memory
+- Local robot memory with one-click wipe
+- Training engine simulation: RAG, data cleaning, LoRA/QLoRA, task dispatch, model merge
+- Investor narrative: user growth → compute growth → lower cost → better AI → more users
 
-## 本地运行
+## Run Locally
 
-直接双击：
+Double click:
 
 ```text
 index.html
 ```
 
-或者：
+Or run:
 
 ```bash
 python -m http.server 8000
 ```
 
-然后打开：
+Then open:
 
 ```text
 http://localhost:8000
 ```
 
-## 下一步
+## Roadmap
 
-1. 接入 Ollama + Qwen/Llama 本地推理
-2. 接入 Stable Diffusion Worker 文生图
-3. 做 Python/Rust 节点客户端
-4. 做 FastAPI 调度服务
-5. 做 PostgreSQL 节点和用户系统
-6. 做机器人 SDK 与本地记忆
+1. Add Ollama + Qwen/Llama local inference
+2. Add Stable Diffusion worker
+3. Build Python/Rust node client
+4. Build FastAPI scheduler
+5. Add PostgreSQL node/user system
+6. Add robot SDK and local-first memory
 
-## 产品卖点
+## Product Keywords
+
+**Free, private, open, user-owned, robot-ready AI.**
 
 **免费、隐私、开放、共建、机器人。**
