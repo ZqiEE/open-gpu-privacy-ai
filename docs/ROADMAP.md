@@ -7,7 +7,7 @@
 - Paid/no-node model
 - Ephemeral chat
 - Open mode
-- Robot memory
+- Private memory demo
 - Training engine simulation
 
 ## v0.2 Global Demo
@@ -17,7 +17,7 @@
 - Better access gate
 - Investor narrative page
 - Upgraded training simulator
-- Robot-ready positioning
+- Focused private AI positioning
 
 ## v0.3 Product Skeleton
 
@@ -77,12 +77,14 @@
 - RAG import job schema
 - LoRA micro job schema
 - Evaluation batch job schema
-- Robot memory tuning job schema
+- Private memory tuning job schema
 - Model version registry
 
-## v1.0 Robot SDK
+## v1.0 Focused Network MVP
 
-- Private robot memory
-- Local-first personality
-- Memory expiration
-- Home/companion/office robot integration
+- Stable local runtime
+- Stable node client
+- Scheduler persistence
+- Training job lifecycle
+- Model version registry
+- Clean documentation and deployment path
