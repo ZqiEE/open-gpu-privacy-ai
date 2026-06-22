@@ -7,6 +7,8 @@ A local MVP for a **user-owned GPU network for private AI**. Users contribute id
 
 ## v1.1 Operations Pack
 
+Includes the previous **v1.0 Engineering Pack** plus operations workflows.
+
 Main scope:
 
 - Open GPU Network
@@ -28,6 +30,15 @@ Added in v1.1:
 - `docs/OPERATIONS.md`
 - `docs/DEVELOPER_HANDOFF.md`
 - `docs/CHANGELOG.md`
+
+Existing engineering assets:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `Makefile`
+- `tests/test_api_contract.py`
+- `docs/API.md`
+- `docs/SECURITY.md`
 
 ## Core Positioning
 
