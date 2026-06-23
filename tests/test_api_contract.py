@@ -14,7 +14,7 @@ def test_root_contract() -> None:
     response = client.get("/")
     assert response.status_code == 200
     body = response.json()
-    assert body["name"] == "Open GPU Privacy AI"
+    assert body["name"] == "Ailovanta"
     assert "scheduler" in body
 
 
