@@ -12,12 +12,13 @@ from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.reputation import ReputationService
+from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRegistry, RuntimeRequest
 from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.6.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -31,6 +32,7 @@ memories = MemoryStore()
 ollama = OllamaAdapter()
 verifier = VerificationEngine()
 training = TrainingPlanner()
+runtime_registry = RuntimeRegistry()
 
 
 class NodeRegister(BaseModel):
@@ -83,6 +85,50 @@ class MemoryRequest(BaseModel):
     user_id: str = "local"
 
 
+class RuntimeModelRegister(BaseModel):
+    model_id: str
+    version: str
+    manifest_hash: str
+    privacy_level: Literal["public", "protected", "private"] = "public"
+    min_gpu_memory_gb: float = Field(default=0.0, ge=0)
+    allowed_pools: list[Literal["cpu_pool", "small_gpu_pool", "large_gpu_pool", "storage_pool", "validator_pool", "trusted_runtime_pool", "enterprise_pool"]] = Field(default_factory=lambda: ["small_gpu_pool", "large_gpu_pool", "enterprise_pool"])
+    quantization: str = "unknown"
+    context_length: int = Field(default=4096, ge=1)
+    adapter_compatible: bool = True
+    status: str = "active"
+
+
+class RuntimeNodeRegister(BaseModel):
+    runtime_id: str
+    node_id: str
+    pool: Literal["cpu_pool", "small_gpu_pool", "large_gpu_pool", "storage_pool", "validator_pool", "trusted_runtime_pool", "enterprise_pool"]
+    region: str = "global"
+    status: str = "online"
+    gpu_memory_gb: float = Field(default=0.0, ge=0)
+    available_gpu_memory_gb: float = Field(default=0.0, ge=0)
+    trust_score: float = Field(default=0.5, ge=0, le=1)
+    current_load: float = Field(default=0.0, ge=0, le=1)
+    price_per_1k_tokens: float = Field(default=0.0, ge=0)
+    latency_ms: int = Field(default=1000, ge=1)
+    supported_engines: list[str] = Field(default_factory=list)
+    cached_models: list[str] = Field(default_factory=list)
+    cached_adapters: list[str] = Field(default_factory=list)
+
+
+class RuntimeRouteRequest(BaseModel):
+    request_id: str
+    model_id: str
+    version: str
+    task_type: Literal["chat_completion", "embedding", "rerank", "batch", "training", "validation"] = "chat_completion"
+    privacy_level: Literal["public", "protected", "private"] = "public"
+    latency_target_ms: int = Field(default=2000, ge=1)
+    max_price_per_1k_tokens: float = Field(default=0.1, ge=0)
+    region_hint: str = "auto"
+    required_context_length: int = Field(default=4096, ge=1)
+    required_adapter: str | None = None
+    verification_required: bool = True
+
+
 @app.get("/")
 def root() -> dict:
     return {
@@ -93,6 +139,7 @@ def root() -> dict:
         "dashboard": "/dashboard",
         "docs": "/docs",
         "scheduler": store.status(),
+        "runtime": runtime_registry.status(),
     }
 
 
@@ -182,6 +229,39 @@ def submit_result(body: JobResult) -> dict:
     scored = verifier.score_result(body.job_id, body.node_id, body.status, body.output_summary)
     verification = store.record_verification(result, scored.score, scored.passed, scored.reason)
     return {"ok": True, "result": result, "verification": verification}
+
+
+@app.post("/runtime/models/register")
+def register_runtime_model(body: RuntimeModelRegister) -> dict:
+    manifest = ModelManifest(**body.model_dump())
+    return {"ok": True, "model": runtime_registry.register_model(manifest)}
+
+
+@app.get("/runtime/models")
+def list_runtime_models() -> dict:
+    return {"models": runtime_registry.list_models()}
+
+
+@app.post("/runtime/nodes/register")
+def register_runtime_node(body: RuntimeNodeRegister) -> dict:
+    profile = RuntimeNodeProfile(**body.model_dump())
+    return {"ok": True, "runtime": runtime_registry.register_runtime(profile)}
+
+
+@app.get("/runtime/nodes")
+def list_runtime_nodes() -> dict:
+    return {"runtimes": runtime_registry.list_runtimes()}
+
+
+@app.get("/runtime/status")
+def runtime_status() -> dict:
+    return runtime_registry.status()
+
+
+@app.post("/runtime/route")
+def route_runtime_request(body: RuntimeRouteRequest) -> dict:
+    request = RuntimeRequest(**body.model_dump())
+    return runtime_registry.route(request)
 
 
 @app.post("/training/jobs")
