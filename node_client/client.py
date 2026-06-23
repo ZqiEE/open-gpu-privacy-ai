@@ -113,7 +113,7 @@ def worker_loop(config: NodeConfig) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Open GPU Privacy AI hardened local node client")
+    parser = argparse.ArgumentParser(description="Ailovanta hardened local node client")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument("--contribution", type=int, default=30)
     parser.add_argument("--poll-seconds", type=int, default=5)
