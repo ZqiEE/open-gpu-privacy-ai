@@ -24,6 +24,7 @@ paths = {
     "launch_doc": root / "docs" / "PUBLIC_LAUNCH_CHECKLIST.md",
     "repo_settings_doc": root / "docs" / "REPOSITORY_SETTINGS.md",
     "technical_doc": root / "docs" / "TECHNICAL_OVERVIEW.md",
+    "runtime_arch_doc": root / "docs" / "MODEL_RUNTIME_ARCHITECTURE.md",
     "integration_doc": root / "docs" / "CORE_INTEGRATION_PLAN.md",
     "changelog": root / "docs" / "CHANGELOG.md",
     "private_core_doc": root / "PRIVATE_CORE.md",
@@ -56,7 +57,7 @@ for marker in [
     assert marker in html, f"missing html marker: {marker}"
 
 readme_text = paths["readme"].read_text(encoding="utf-8")
-for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "CONTRIBUTING.md", "TECHNICAL_OVERVIEW.md", "CORE_INTEGRATION_PLAN.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
+for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "CONTRIBUTING.md", "TECHNICAL_OVERVIEW.md", "MODEL_RUNTIME_ARCHITECTURE.md", "CORE_INTEGRATION_PLAN.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
     assert marker in readme_text, f"missing README marker: {marker}"
 
 brand_text = paths["brand"].read_text(encoding="utf-8")
@@ -80,11 +81,15 @@ for marker in ["Repository Settings", "ailovanta", "Branch protection", "Ailovan
     assert marker in repo_settings_text, f"missing repo settings marker: {marker}"
 
 technical_text = paths["technical_doc"].read_text(encoding="utf-8")
-for marker in ["Ailovanta Technical Overview", "Job lifecycle", "Training lifecycle", "Public/core split"]:
+for marker in ["Ailovanta Technical Overview", "Model runtime architecture", "Job lifecycle", "Training lifecycle", "Public/core split"]:
     assert marker in technical_text, f"missing technical overview marker: {marker}"
 
+runtime_text = paths["runtime_arch_doc"].read_text(encoding="utf-8")
+for marker in ["Model Runtime Architecture", "Access Router", "Runtime Pool", "warm runtime", "verified model chunks", "Do not centralize the model"]:
+    assert marker in runtime_text, f"missing model runtime marker: {marker}"
+
 integration_text = paths["integration_doc"].read_text(encoding="utf-8")
-for marker in ["Core Integration Plan", "Bridge interface", "Phase 1", "Phase 2", "Phase 3"]:
+for marker in ["Core Integration Plan", "Runtime pool interface", "Access Router", "Phase 1", "Phase 2", "Phase 3", "Phase 4"]:
     assert marker in integration_text, f"missing integration plan marker: {marker}"
 
 changelog_text = paths["changelog"].read_text(encoding="utf-8")
