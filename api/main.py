@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from api.ailovanta_native import AilovantaRunRequest, build_run_result
+from api.conversation_store import ConversationStore
 from api.dashboard import DashboardService
 from api.health import get_health
 from api.memory_store import MemoryStore
@@ -21,7 +22,7 @@ from api.training import TrainingKind, TrainingPlanner
 from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.7.0"
+APP_VERSION = "1.8.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -36,6 +37,7 @@ ollama = OllamaAdapter()
 verifier = VerificationEngine()
 training = TrainingPlanner()
 runtime_registry = RuntimeStore()
+conversations = ConversationStore()
 
 
 class NodeRegister(BaseModel):
@@ -86,6 +88,21 @@ class ChatRequest(BaseModel):
 class MemoryRequest(BaseModel):
     memory: str
     user_id: str = "local"
+
+
+class ConversationCreate(BaseModel):
+    user_id: str = "local"
+    title: str = "New chat"
+
+
+class NativeChatRequest(BaseModel):
+    prompt: str
+    user_id: str = "local"
+    conversation_id: str | None = None
+    title: str = "New chat"
+    model_id: str = "ailovanta-local"
+    version: str = "local"
+    use_runtime_router: bool = False
 
 
 class RuntimeModelRegister(BaseModel):
@@ -142,9 +159,11 @@ def root() -> dict:
         "dashboard": "/dashboard",
         "docs": "/docs",
         "ailovanta_native": "/ailovanta/v1/run",
+        "ailovanta_chat": "/ailovanta/v1/chat",
         "compatibility_chat": "/v1/chat/completions",
         "scheduler": store.status(),
         "runtime": runtime_registry.status(),
+        "conversations": conversations.status(),
     }
 
 
@@ -327,6 +346,57 @@ def chat(body: ChatRequest) -> dict:
     if body.remember:
         memories.add(body.prompt, body.user_id)
     return {"answer": answer, "source": source}
+
+
+@app.post("/ailovanta/v1/conversations")
+def create_conversation(body: ConversationCreate) -> dict:
+    return {"conversation": conversations.create_conversation(user_id=body.user_id, title=body.title)}
+
+
+@app.get("/ailovanta/v1/conversations")
+def list_conversations(user_id: str = "local", limit: int = 50) -> dict:
+    return {"conversations": conversations.list_conversations(user_id=user_id, limit=limit)}
+
+
+@app.get("/ailovanta/v1/conversations/{conversation_id}/messages")
+def list_conversation_messages(conversation_id: str, limit: int = 100) -> dict:
+    convo = conversations.get_conversation(conversation_id)
+    if not convo:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    return {"conversation": convo, "messages": conversations.list_messages(conversation_id, limit=limit)}
+
+
+@app.delete("/ailovanta/v1/conversations/{conversation_id}")
+def delete_conversation(conversation_id: str) -> dict:
+    deleted = conversations.delete_conversation(conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    return {"ok": True}
+
+
+@app.post("/ailovanta/v1/chat")
+def ailovanta_chat(body: NativeChatRequest) -> dict:
+    convo = conversations.get_or_create(body.conversation_id, body.user_id, body.title)
+    conversations.add_message(convo["id"], "user", body.prompt, source="user", model_id=body.model_id)
+    route = {"assigned": False, "reason": "runtime routing not requested"}
+    if body.use_runtime_router:
+        route = runtime_registry.route(
+            RuntimeRequest(
+                request_id=f"chat-{convo['id']}",
+                model_id=body.model_id,
+                version=body.version,
+                region_hint="auto",
+            )
+        )
+    try:
+        answer = ollama.chat(body.prompt, "open", [])
+        source = "ollama"
+    except OllamaUnavailable:
+        answer = "Ailovanta local fallback: connect Ollama or a registered runtime to enable real model responses."
+        source = "fallback"
+    assistant_message = conversations.add_message(convo["id"], "assistant", answer, source=source, model_id=body.model_id)
+    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id})
+    return {"conversation_id": convo["id"], "answer": answer, "source": source, "runtime_route": route, "assistant_message": assistant_message}
 
 
 @app.post("/ailovanta/v1/run")
