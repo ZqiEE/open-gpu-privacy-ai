@@ -3,13 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from api.ailovanta_native import AilovantaRunRequest, build_run_result
+from api.auth_store import AuthStore
 from api.conversation_store import ConversationStore
 from api.dashboard import DashboardService
+from api.github_auth import GitHubAuthConfigError, build_github_login_url, exchange_code_for_token, fetch_github_profile
 from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
@@ -22,12 +24,13 @@ from api.training import TrainingKind, TrainingPlanner
 from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.9.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 app = FastAPI(title="Ailovanta API", version=APP_VERSION)
 
+auth_store = AuthStore()
 store = SchedulerStore()
 usage_store = UsageStore()
 dashboard = DashboardService(store)
@@ -149,6 +152,12 @@ class RuntimeRouteRequest(BaseModel):
     verification_required: bool = True
 
 
+def bearer_token(authorization: str | None) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Bearer token required")
+    return authorization.removeprefix("Bearer ").strip()
+
+
 @app.get("/")
 def root() -> dict:
     return {
@@ -158,13 +167,57 @@ def root() -> dict:
         "app": "/app",
         "dashboard": "/dashboard",
         "docs": "/docs",
+        "auth": "/auth/github/login",
         "ailovanta_native": "/ailovanta/v1/run",
         "ailovanta_chat": "/ailovanta/v1/chat",
         "compatibility_chat": "/v1/chat/completions",
         "scheduler": store.status(),
         "runtime": runtime_registry.status(),
         "conversations": conversations.status(),
+        "auth_status": auth_store.status(),
     }
+
+
+@app.get("/auth/github/login")
+def github_login() -> dict:
+    state = auth_store.create_state()
+    try:
+        login_url = build_github_login_url(state)
+    except GitHubAuthConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"provider": "github", "login_url": login_url, "state": state}
+
+
+@app.get("/auth/github/callback")
+def github_callback(code: str, state: str) -> dict:
+    if not auth_store.consume_state(state):
+        raise HTTPException(status_code=400, detail="invalid or expired auth state")
+    try:
+        access_token = exchange_code_for_token(code)
+        profile = fetch_github_profile(access_token)
+    except GitHubAuthConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="GitHub login failed") from exc
+    user = auth_store.upsert_github_user(profile)
+    session = auth_store.create_session(user["id"])
+    return {"user": user, "session": session}
+
+
+@app.get("/auth/me")
+def auth_me(authorization: str | None = Header(default=None)) -> dict:
+    token = bearer_token(authorization)
+    session = auth_store.get_session(token)
+    if not session:
+        raise HTTPException(status_code=401, detail="invalid or expired session")
+    user = auth_store.get_user(session["user_id"])
+    return {"user": user, "session": session}
+
+
+@app.post("/auth/logout")
+def auth_logout(authorization: str | None = Header(default=None)) -> dict:
+    token = bearer_token(authorization)
+    return {"ok": auth_store.revoke_session(token)}
 
 
 @app.get("/app")
@@ -380,14 +433,7 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
     conversations.add_message(convo["id"], "user", body.prompt, source="user", model_id=body.model_id)
     route = {"assigned": False, "reason": "runtime routing not requested"}
     if body.use_runtime_router:
-        route = runtime_registry.route(
-            RuntimeRequest(
-                request_id=f"chat-{convo['id']}",
-                model_id=body.model_id,
-                version=body.version,
-                region_hint="auto",
-            )
-        )
+        route = runtime_registry.route(RuntimeRequest(request_id=f"chat-{convo['id']}", model_id=body.model_id, version=body.version, region_hint="auto"))
     try:
         answer = ollama.chat(body.prompt, "open", [])
         source = "ollama"
