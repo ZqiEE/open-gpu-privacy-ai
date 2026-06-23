@@ -121,8 +121,7 @@ def test_training_job_and_model_version() -> None:
 
 
 def test_runtime_router_prefers_warm_verified_runtime() -> None:
-    runtime_registry.models.clear()
-    runtime_registry.runtimes.clear()
+    runtime_registry.clear()
     client = TestClient(app)
 
     model = client.post(
@@ -202,8 +201,7 @@ def test_runtime_router_prefers_warm_verified_runtime() -> None:
 
 
 def test_private_runtime_routes_only_to_trusted_pool() -> None:
-    runtime_registry.models.clear()
-    runtime_registry.runtimes.clear()
+    runtime_registry.clear()
     client = TestClient(app)
 
     client.post(
