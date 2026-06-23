@@ -76,8 +76,11 @@ GET  /runtime/models
 POST /runtime/nodes/register
 GET  /runtime/nodes
 GET  /runtime/status
+GET  /runtime/assignments
 POST /runtime/route
 ```
+
+Runtime models, runtime nodes, and route assignments are persisted in SQLite at `runtime_data/runtime.sqlite3` by default.
 
 Register a model manifest:
 
@@ -133,6 +136,12 @@ curl -X POST http://127.0.0.1:8000/runtime/route \
     "region_hint": "us-east",
     "verification_required": true
   }'
+```
+
+Read route history:
+
+```bash
+curl http://127.0.0.1:8000/runtime/assignments
 ```
 
 The router prefers warm cached models, correct privacy tier, enough GPU memory, high trust score, low load, low latency, and acceptable price.
@@ -233,13 +242,14 @@ curl -X POST http://127.0.0.1:8000/models/versions \
 1. Register runtime model
 2. Register runtime node with cached model
 3. Route runtime request
-4. Register regular node
-5. Fetch next job
-6. Submit result
-7. Check verification status
-8. Create training job
-9. Register model version
-10. Read dashboard summary
+4. Read runtime assignments
+5. Register regular node
+6. Fetch next job
+7. Submit result
+8. Check verification status
+9. Create training job
+10. Register model version
+11. Read dashboard summary
 
 ## Smoke test
 
