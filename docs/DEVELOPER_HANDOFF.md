@@ -1,12 +1,12 @@
-# Developer Handoff
+# Ailovanta Developer Handoff
 
 ## Current state
 
-The repository is a local MVP for a user-owned GPU network for private AI.
+Ailovanta is a local MVP for a distributed AI compute network.
 
 Implemented:
 
-- Static product page
+- Public product page
 - FastAPI runtime
 - SQLite scheduler store
 - Node client
@@ -18,21 +18,38 @@ Implemented:
 - Model version registry
 - Docker / Compose
 - Tests / CI
+- Public/private repository boundary
+
+## Repositories
+
+Public repository:
+
+```text
+https://github.com/ZqiEE/ailovanta.git
+```
+
+Core repository:
+
+```text
+https://github.com/ZqiEE/ailovanta-core.git
+```
 
 ## Good next tasks
 
-1. Replace SQLite with PostgreSQL behind the same `SchedulerStore` interface.
-2. Add Redis-style queue locking.
-3. Add node identity persistence.
-4. Add signed task payloads.
-5. Add real RAG importer.
-6. Add LoRA/QLoRA worker integration.
-7. Add OpenAPI examples to each endpoint.
-8. Add a small web dashboard for scheduler status.
+1. Keep the public shell clean and brand-consistent.
+2. Keep core network logic in Ailovanta Core.
+3. Replace SQLite with PostgreSQL behind the same `SchedulerStore` interface.
+4. Add Redis-style queue locking.
+5. Add signed task payloads.
+6. Add real RAG importer.
+7. Add LoRA/QLoRA worker integration.
+8. Add OpenAPI examples to each endpoint.
+9. Add a production dashboard for scheduler status and node health.
 
 ## Avoid for now
 
 - Do not add unrelated vertical apps.
 - Do not expand into hardware devices yet.
 - Do not claim distributed training is solved.
+- Do not put core network logic in the public repository.
 - Do not run arbitrary untrusted code on contributor machines.
