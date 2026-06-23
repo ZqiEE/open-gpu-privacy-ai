@@ -1,10 +1,20 @@
-# Open GPU Privacy AI
+# Ailovanta
 
-> Public shell for a user-owned AI compute network.
+> AI powered by the world's distributed compute.
 
-This repository is for public demos, public docs, and interface examples.
+Ailovanta is the public shell for a distributed AI compute network.
 
-Core production work should be developed outside this public repository.
+This repository is for public demos, public docs, SDK/interface examples, and the public node shell. It does not contain the private production core.
+
+## Positioning
+
+Ailovanta is built around one simple idea:
+
+```text
+Train, run, and validate AI with distributed compute.
+```
+
+The public layer should explain the product, show demos, and provide safe interfaces. The private core contains the defensible routing, validation, scoring, and orchestration logic.
 
 ## Public files
 
@@ -13,6 +23,7 @@ Core production work should be developed outside this public repository.
 - demos
 - tests
 - interface examples
+- public node shell
 
 ## Boundary docs
 
