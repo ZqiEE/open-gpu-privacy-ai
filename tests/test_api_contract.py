@@ -15,7 +15,20 @@ def test_root_contract() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["name"] == "Ailovanta"
+    assert body["app"] == "/app"
+    assert body["dashboard"] == "/dashboard"
     assert "scheduler" in body
+
+
+def test_public_pages_are_served() -> None:
+    client = TestClient(app)
+    app_response = client.get("/app")
+    assert app_response.status_code == 200
+    assert "Ailovanta" in app_response.text
+
+    dashboard_response = client.get("/dashboard")
+    assert dashboard_response.status_code == 200
+    assert "Ailovanta Dashboard" in dashboard_response.text
 
 
 def test_register_node_and_job_flow() -> None:
