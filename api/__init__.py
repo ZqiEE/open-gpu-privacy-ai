@@ -1,1 +1,1 @@
-"""Open GPU Privacy AI local API package."""
+"""Ailovanta local API package."""
