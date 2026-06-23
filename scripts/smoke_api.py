@@ -49,6 +49,10 @@ def main() -> None:
             result.raise_for_status()
             print("result:", result.json())
 
+        status = client.get(f"{api}/network/status")
+        status.raise_for_status()
+        print("status:", status.json())
+
         summary = client.get(f"{api}/dashboard/summary")
         summary.raise_for_status()
         print("summary:", summary.json())
