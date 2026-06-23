@@ -12,7 +12,8 @@ from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.reputation import ReputationService
-from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRegistry, RuntimeRequest
+from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRequest
+from api.runtime_store import RuntimeStore
 from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.usage_store import UsageStore
@@ -32,7 +33,7 @@ memories = MemoryStore()
 ollama = OllamaAdapter()
 verifier = VerificationEngine()
 training = TrainingPlanner()
-runtime_registry = RuntimeRegistry()
+runtime_registry = RuntimeStore()
 
 
 class NodeRegister(BaseModel):
@@ -256,6 +257,11 @@ def list_runtime_nodes() -> dict:
 @app.get("/runtime/status")
 def runtime_status() -> dict:
     return runtime_registry.status()
+
+
+@app.get("/runtime/assignments")
+def list_runtime_assignments(limit: int = 50) -> dict:
+    return {"assignments": runtime_registry.list_assignments(limit=limit)}
 
 
 @app.post("/runtime/route")
