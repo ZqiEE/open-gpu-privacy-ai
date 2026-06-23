@@ -11,7 +11,7 @@ def test_health_endpoint() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["ok"] is True
-    assert body["service"] == "open-gpu-privacy-ai-api"
+    assert body["service"] == "ailovanta-api"
 
 
 def test_ready_endpoint() -> None:
