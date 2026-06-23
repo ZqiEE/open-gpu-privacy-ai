@@ -21,7 +21,9 @@ paths = {
     "node_device": root / "node_client" / "device.py",
     "resource_guard": root / "node_client" / "resource_guard.py",
     "job_runner": root / "node_client" / "job_runner.py",
+    "runtime_demo_script": root / "scripts" / "demo_runtime_flow.py",
     "deployment_doc": root / "docs" / "DEPLOYMENT.md",
+    "runtime_demo_doc": root / "docs" / "RUNTIME_DEMO.md",
     "status_doc": root / "docs" / "PROJECT_STATUS.md",
     "launch_doc": root / "docs" / "PUBLIC_LAUNCH_CHECKLIST.md",
     "repo_settings_doc": root / "docs" / "REPOSITORY_SETTINGS.md",
@@ -52,7 +54,7 @@ for marker in ["Ailovanta", "AI powered by the world's distributed compute.", "A
     assert marker in html, f"missing html marker: {marker}"
 
 readme_text = paths["readme"].read_text(encoding="utf-8")
-for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "CONTRIBUTING.md", "TECHNICAL_OVERVIEW.md", "MODEL_RUNTIME_ARCHITECTURE.md", "CORE_INTEGRATION_PLAN.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
+for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "demo_runtime_flow.py", "RUNTIME_DEMO.md", "MODEL_RUNTIME_ARCHITECTURE.md", "CORE_INTEGRATION_PLAN.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
     assert marker in readme_text, f"missing README marker: {marker}"
 
 brand_text = paths["brand"].read_text(encoding="utf-8")
@@ -62,6 +64,14 @@ for marker in ["Ailovanta", "Ailovanta Core", "H-SwarmTrain", "ailovanta.git", "
 contributing_text = paths["contributing"].read_text(encoding="utf-8")
 for marker in ["Contributing to Ailovanta", "python validate.py", "python -m pytest -q"]:
     assert marker in contributing_text, f"missing contributing marker: {marker}"
+
+runtime_demo_doc = paths["runtime_demo_doc"].read_text(encoding="utf-8")
+for marker in ["Runtime Demo", "demo_runtime_flow.py", "model manifest", "runtime node", "route request"]:
+    assert marker in runtime_demo_doc, f"missing runtime demo doc marker: {marker}"
+
+runtime_demo_script = paths["runtime_demo_script"].read_text(encoding="utf-8")
+for marker in ["/runtime/models/register", "/runtime/nodes/register", "/runtime/route", "/runtime/assignments"]:
+    assert marker in runtime_demo_script, f"missing runtime demo script marker: {marker}"
 
 status_text = paths["status_doc"].read_text(encoding="utf-8")
 for marker in ["Current stage", "Done in the public repository", "Not done yet", "Safe public claim"]:
