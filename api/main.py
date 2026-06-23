@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from api.ailovanta_native import AilovantaRunRequest, build_run_result
 from api.dashboard import DashboardService
 from api.health import get_health
 from api.memory_store import MemoryStore
@@ -20,7 +21,7 @@ from api.training import TrainingKind, TrainingPlanner
 from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.7.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -140,7 +141,8 @@ def root() -> dict:
         "app": "/app",
         "dashboard": "/dashboard",
         "docs": "/docs",
-        "openai_compatible": "/v1/chat/completions",
+        "ailovanta_native": "/ailovanta/v1/run",
+        "compatibility_chat": "/v1/chat/completions",
         "scheduler": store.status(),
         "runtime": runtime_registry.status(),
     }
@@ -327,8 +329,35 @@ def chat(body: ChatRequest) -> dict:
     return {"answer": answer, "source": source}
 
 
+@app.post("/ailovanta/v1/run")
+def ailovanta_run(body: AilovantaRunRequest) -> dict:
+    route = {"assigned": False, "reason": "runtime routing not requested"}
+    if body.use_runtime_router:
+        route = runtime_registry.route(
+            RuntimeRequest(
+                request_id=f"native-{body.user_id}-{body.model_id}-{body.version}",
+                model_id=body.model_id,
+                version=body.version,
+                task_type=body.task_type,
+                privacy_level=body.privacy_level,
+                latency_target_ms=body.latency_target_ms,
+                max_price_per_1k_tokens=body.max_price_per_1k_tokens,
+                region_hint=body.region_hint,
+                verification_required=body.verification_required,
+            )
+        )
+    try:
+        answer = ollama.chat(body.prompt, "open", [])
+        source = "ollama"
+    except OllamaUnavailable:
+        answer = "Ailovanta local fallback: connect Ollama or a registered runtime to enable real model responses."
+        source = "fallback"
+    usage_store.record(body.user_id, "ailovanta.run", 1, source, {"endpoint": "/ailovanta/v1/run", "model_id": body.model_id})
+    return build_run_result(body, answer, source, route)
+
+
 @app.post("/v1/chat/completions")
-def openai_chat_completions(body: ChatCompletionRequest) -> dict:
+def compatibility_chat_completions(body: ChatCompletionRequest) -> dict:
     if body.stream:
         raise HTTPException(status_code=400, detail="streaming is not supported in this local MVP yet")
     prompt = extract_user_prompt(body.messages)
@@ -338,7 +367,7 @@ def openai_chat_completions(body: ChatCompletionRequest) -> dict:
         answer = ollama.chat(prompt, "open", [])
     except OllamaUnavailable:
         answer = "Ailovanta local fallback: connect Ollama or another local runtime to enable real model responses."
-    usage_store.record(body.user or "openai-compatible", "chat.completions", 1, body.model, {"endpoint": "/v1/chat/completions"})
+    usage_store.record(body.user or "compatibility", "chat.completions", 1, body.model, {"endpoint": "/v1/chat/completions"})
     return build_chat_completion_response(body.model, answer, prompt)
 
 
