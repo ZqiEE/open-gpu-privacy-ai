@@ -1,6 +1,6 @@
-# Local Runtime
+# Ailovanta Local Runtime
 
-v0.4 adds a minimal local runtime skeleton. It is not a production network yet. It gives developers a concrete path from static MVP to a working local system.
+Ailovanta is still a local MVP. It gives developers a concrete path from static demo to a working local system for distributed AI compute.
 
 ## Install
 
@@ -46,25 +46,35 @@ The node client will:
 4. Pull a small job
 5. Simulate execution
 6. Submit the result
+7. Receive verification and trust updates
 
 ## API Endpoints
 
 ```text
 GET  /
+GET  /health
+GET  /ready
+GET  /network/status
+GET  /verification/status
 POST /nodes/register
 POST /nodes/heartbeat
+GET  /jobs
 GET  /jobs/next
 POST /jobs/result
+POST /jobs/retry-failed
+POST /jobs/requeue-stale
 POST /ai/chat
-GET  /network/status
+GET  /dashboard/summary
+GET  /dashboard/jobs
+GET  /dashboard/models
 ```
 
 ## Next Engineering Steps
 
 - Add persistent PostgreSQL storage
 - Add Redis task queue
-- Add real Ollama adapter
-- Add local memory storage
-- Add GPU detection
+- Add real worker adapters
+- Add GPU worker integration
 - Add task sandboxing
-- Add node reputation and verification
+- Add node reputation and stronger verification
+- Connect public shell to Ailovanta Core
