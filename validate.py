@@ -5,6 +5,7 @@ paths = {
     "index": root / "index.html",
     "dashboard": root / "dashboard.html",
     "readme": root / "README.md",
+    "version": root / "VERSION",
     "brand": root / "BRAND.md",
     "contributing": root / "CONTRIBUTING.md",
     "api": root / "api" / "main.py",
@@ -21,6 +22,9 @@ paths = {
     "deployment_doc": root / "docs" / "DEPLOYMENT.md",
     "status_doc": root / "docs" / "PROJECT_STATUS.md",
     "launch_doc": root / "docs" / "PUBLIC_LAUNCH_CHECKLIST.md",
+    "technical_doc": root / "docs" / "TECHNICAL_OVERVIEW.md",
+    "integration_doc": root / "docs" / "CORE_INTEGRATION_PLAN.md",
+    "changelog": root / "docs" / "CHANGELOG.md",
     "private_core_doc": root / "PRIVATE_CORE.md",
     "dockerfile": root / "Dockerfile",
     "tests": root / "tests" / "test_api_contract.py",
@@ -36,6 +40,9 @@ paths = {
 for path in paths.values():
     assert path.exists(), f"missing file: {path.relative_to(root)}"
 
+version_text = paths["version"].read_text(encoding="utf-8").strip()
+assert version_text == "1.3.0-public-mvp", f"unexpected version: {version_text}"
+
 html = paths["index"].read_text(encoding="utf-8")
 for marker in [
     "Ailovanta",
@@ -48,7 +55,7 @@ for marker in [
     assert marker in html, f"missing html marker: {marker}"
 
 readme_text = paths["readme"].read_text(encoding="utf-8")
-for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "CONTRIBUTING.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
+for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "CONTRIBUTING.md", "TECHNICAL_OVERVIEW.md", "CORE_INTEGRATION_PLAN.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
     assert marker in readme_text, f"missing README marker: {marker}"
 
 brand_text = paths["brand"].read_text(encoding="utf-8")
@@ -66,6 +73,18 @@ for marker in ["Current stage", "Done in the public repository", "Not done yet",
 launch_text = paths["launch_doc"].read_text(encoding="utf-8")
 for marker in ["Public Launch Checklist", "python validate.py", "Safe public claim"]:
     assert marker in launch_text, f"missing launch checklist marker: {marker}"
+
+technical_text = paths["technical_doc"].read_text(encoding="utf-8")
+for marker in ["Ailovanta Technical Overview", "Job lifecycle", "Training lifecycle", "Public/core split"]:
+    assert marker in technical_text, f"missing technical overview marker: {marker}"
+
+integration_text = paths["integration_doc"].read_text(encoding="utf-8")
+for marker in ["Core Integration Plan", "Bridge interface", "Phase 1", "Phase 2", "Phase 3"]:
+    assert marker in integration_text, f"missing integration plan marker: {marker}"
+
+changelog_text = paths["changelog"].read_text(encoding="utf-8")
+for marker in ["v1.3 Public MVP Finalization", "Ailovanta", "VERSION"]:
+    assert marker in changelog_text, f"missing changelog marker: {marker}"
 
 api_text = paths["api"].read_text(encoding="utf-8")
 for marker in [
