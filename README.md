@@ -146,6 +146,7 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 - `docs/PROJECT_STATUS.md` — current done/not-done boundary
 - `docs/PUBLIC_LAUNCH_CHECKLIST.md` — public launch checklist
 - `docs/TECHNICAL_OVERVIEW.md` — technical overview
+- `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
 - `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
 - `docs/LOCAL_RUNTIME.md` — local run guide
 - `docs/API.md` — local API reference
