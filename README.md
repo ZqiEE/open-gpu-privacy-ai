@@ -52,6 +52,7 @@ https://github.com/ZqiEE/ailovanta-core.git
 - Hardened local node client
 - Docker / Compose files
 - Validation script and pytest suite
+- Contribution guide and issue templates
 
 ## Quickstart
 
@@ -135,6 +136,7 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 ## Docs
 
 - `BRAND.md` — brand rules
+- `CONTRIBUTING.md` — contribution guide
 - `SECURITY_BOUNDARY.md` — public/private boundary
 - `PRIVATE_CORE.md` — private core plan
 - `docs/PROJECT_STATUS.md` — current done/not-done boundary
