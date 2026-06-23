@@ -1,25 +1,26 @@
-# Roadmap
+# Ailovanta Roadmap
+
+## Current status
+
+Ailovanta is a local MVP. The public repository is meant to be clean, runnable, and understandable. It should not claim that global distributed training is solved yet.
 
 ## v0.1 Public MVP
 
 - Static web demo
 - Contributor/free-use model
 - Paid/no-node model
-- Ephemeral chat
-- Open mode
-- Private memory demo
-- Training engine simulation
+- Ephemeral chat demo
+- Training simulation
 
-## v0.2 Global Demo
+## v0.2 Product Shell
 
 - English-first homepage and README
 - Compute network dashboard
 - Better access gate
 - Investor narrative page
 - Upgraded training simulator
-- Focused private AI positioning
 
-## v0.3 Product Skeleton
+## v0.3 Public Interface
 
 - Node Client page
 - API skeleton page
@@ -51,7 +52,7 @@
 - CPU and memory resource guard
 - Heartbeat stability
 - HTTP retry with backoff
-- Simulated sandboxed job runner
+- Simulated job runner
 - Local node logs
 
 ## v0.7 Scheduler Persistence
@@ -88,3 +89,38 @@
 - Training job lifecycle
 - Model version registry
 - Clean documentation and deployment path
+- Brand-consistent public repository
+- Public/private repository boundary
+
+## v1.1 Controlled Testnet
+
+- Authenticated nodes
+- Signed task payloads
+- Stronger worker policy
+- Better verification records
+- PostgreSQL backend option
+- Queue locking
+- Operator dashboard
+
+## v1.2 Real Worker Layer
+
+- RAG worker
+- Evaluation worker
+- LoRA/QLoRA worker prototype
+- Worker capability registry
+- Model artifact metadata registry
+- Clear separation between public worker shell and core coordination
+
+## v1.3 Ailovanta Core Integration
+
+- Public shell talks to Ailovanta Core through stable interfaces
+- H-SwarmTrain Lite round orchestration connects to public job lifecycle
+- Result manifests connect to model version records
+- Safer node admission and scoring rules
+
+## Non-goals for now
+
+- Do not claim global distributed training is already solved.
+- Do not run arbitrary untrusted code on contributor machines.
+- Do not put core network logic in the public repository.
+- Do not add unrelated vertical apps before the infrastructure is credible.
