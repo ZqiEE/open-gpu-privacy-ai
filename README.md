@@ -137,12 +137,16 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 
 ## Docs
 
+- `VERSION` — current public MVP version
 - `BRAND.md` — brand rules
 - `CONTRIBUTING.md` — contribution guide
 - `SECURITY_BOUNDARY.md` — public/private boundary
 - `PRIVATE_CORE.md` — private core plan
+- `docs/CHANGELOG.md` — release history
 - `docs/PROJECT_STATUS.md` — current done/not-done boundary
 - `docs/PUBLIC_LAUNCH_CHECKLIST.md` — public launch checklist
+- `docs/TECHNICAL_OVERVIEW.md` — technical overview
+- `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
 - `docs/LOCAL_RUNTIME.md` — local run guide
 - `docs/API.md` — local API reference
 - `docs/ARCHITECTURE.md` — system overview
