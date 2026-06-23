@@ -41,13 +41,7 @@ Keep:
 
 - H-SwarmTrain as the core algorithm family name.
 
-Avoid public-facing use of:
-
-- Open GPU Privacy AI
-- OpenGPU Privacy AI
-- NodeX AI
-- Nodexa
-- ManyMind AI
+Avoid public-facing use of old engineering names or temporary project names.
 
 ## Homepage hero
 
