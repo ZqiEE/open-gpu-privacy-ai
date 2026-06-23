@@ -6,6 +6,7 @@ paths = {
     "dashboard": root / "dashboard.html",
     "readme": root / "README.md",
     "brand": root / "BRAND.md",
+    "contributing": root / "CONTRIBUTING.md",
     "api": root / "api" / "main.py",
     "health": root / "api" / "health.py",
     "storage": root / "api" / "storage.py",
@@ -19,11 +20,15 @@ paths = {
     "job_runner": root / "node_client" / "job_runner.py",
     "deployment_doc": root / "docs" / "DEPLOYMENT.md",
     "status_doc": root / "docs" / "PROJECT_STATUS.md",
+    "launch_doc": root / "docs" / "PUBLIC_LAUNCH_CHECKLIST.md",
     "private_core_doc": root / "PRIVATE_CORE.md",
     "dockerfile": root / "Dockerfile",
     "tests": root / "tests" / "test_api_contract.py",
     "health_tests": root / "tests" / "test_health_ready.py",
     "workflow": root / ".github" / "workflows" / "validate.yml",
+    "pr_template": root / ".github" / "pull_request_template.md",
+    "bug_template": root / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml",
+    "feature_template": root / ".github" / "ISSUE_TEMPLATE" / "feature_request.yml",
     "requirements": root / "requirements.txt",
     "env_example": root / ".env.example",
 }
@@ -43,16 +48,24 @@ for marker in [
     assert marker in html, f"missing html marker: {marker}"
 
 readme_text = paths["readme"].read_text(encoding="utf-8")
-for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
+for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "CONTRIBUTING.md", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
     assert marker in readme_text, f"missing README marker: {marker}"
 
 brand_text = paths["brand"].read_text(encoding="utf-8")
 for marker in ["Ailovanta", "Ailovanta Core", "H-SwarmTrain", "ailovanta.git", "ailovanta-core.git"]:
     assert marker in brand_text, f"missing brand marker: {marker}"
 
+contributing_text = paths["contributing"].read_text(encoding="utf-8")
+for marker in ["Contributing to Ailovanta", "python validate.py", "python -m pytest -q"]:
+    assert marker in contributing_text, f"missing contributing marker: {marker}"
+
 status_text = paths["status_doc"].read_text(encoding="utf-8")
 for marker in ["Current stage", "Done in the public repository", "Not done yet", "Safe public claim"]:
     assert marker in status_text, f"missing status marker: {marker}"
+
+launch_text = paths["launch_doc"].read_text(encoding="utf-8")
+for marker in ["Public Launch Checklist", "python validate.py", "Safe public claim"]:
+    assert marker in launch_text, f"missing launch checklist marker: {marker}"
 
 api_text = paths["api"].read_text(encoding="utf-8")
 for marker in [
@@ -106,8 +119,16 @@ for marker in ["dashboard.html", "BRAND.md", "SECURITY_BOUNDARY.md", "PRIVATE_CO
     assert marker in docker_text, f"missing Dockerfile marker: {marker}"
 
 workflow_text = paths["workflow"].read_text(encoding="utf-8")
-for marker in ["pip install -r requirements.txt", "python validate.py", "python -m pytest -q"]:
+for marker in ["Ailovanta CI", "pip install -r requirements.txt", "python validate.py", "python -m pytest -q"]:
     assert marker in workflow_text, f"missing workflow marker: {marker}"
+
+pr_text = paths["pr_template"].read_text(encoding="utf-8")
+for marker in ["Ailovanta Pull Request", "Public/private boundary", "python validate.py"]:
+    assert marker in pr_text, f"missing PR template marker: {marker}"
+
+for template_key in ["bug_template", "feature_template"]:
+    template_text = paths[template_key].read_text(encoding="utf-8")
+    assert "Ailovanta" in template_text, f"missing Ailovanta marker in {template_key}"
 
 assert "fastapi" in paths["requirements"].read_text(encoding="utf-8")
 assert "pytest" in paths["requirements"].read_text(encoding="utf-8")
