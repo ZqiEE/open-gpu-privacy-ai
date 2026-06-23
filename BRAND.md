@@ -8,6 +8,20 @@ Ailovanta
 
 AI powered by the world's distributed compute.
 
+## Repositories
+
+Public repository:
+
+```text
+https://github.com/ZqiEE/ailovanta.git
+```
+
+Private core repository:
+
+```text
+https://github.com/ZqiEE/ailovanta-core.git
+```
+
 ## Product description
 
 Ailovanta is a distributed AI compute network for training, running, and validating AI with machines across the network.
