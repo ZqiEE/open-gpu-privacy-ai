@@ -30,6 +30,18 @@ Open:
 http://127.0.0.1:8000/docs
 ```
 
+Public app:
+
+```text
+http://127.0.0.1:8000/app
+```
+
+Local dashboard:
+
+```text
+http://127.0.0.1:8000/dashboard
+```
+
 ## Start Node Client
 
 In another terminal:
@@ -52,6 +64,8 @@ The node client will:
 
 ```text
 GET  /
+GET  /app
+GET  /dashboard
 GET  /health
 GET  /ready
 GET  /network/status
