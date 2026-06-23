@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dashboard import DashboardService
@@ -77,3 +77,130 @@ class ChatRequest(BaseModel):
 class MemoryRequest(BaseModel):
     memory: str
     user_id: str = "local"
+
+
+@app.get("/")
+def root() -> dict:
+    return {
+        "name": "Ailovanta",
+        "version": APP_VERSION,
+        "tagline": "AI powered by the world's distributed compute.",
+        "scheduler": store.status(),
+    }
+
+
+@app.get("/health")
+def health() -> dict:
+    return get_health(APP_VERSION)
+
+
+@app.get("/ready")
+def ready() -> dict:
+    status = store.status()
+    return {"ok": True, "scheduler_store": status["store"], "path": status["path"]}
+
+
+@app.post("/nodes/register")
+def register_node(body: NodeRegister) -> dict:
+    return store.register_node(body.model_dump())
+
+
+@app.get("/nodes")
+def list_nodes(limit: int = 50) -> dict:
+    return {"nodes": store.list_nodes(limit=limit)}
+
+
+@app.post("/nodes/heartbeat")
+def heartbeat(body: Heartbeat) -> dict:
+    node = store.update_heartbeat(body.node_id, body.status)
+    if not node:
+        raise HTTPException(status_code=404, detail="node not found")
+    return node
+
+
+@app.get("/jobs/next")
+def next_job(node_id: str) -> dict:
+    return {"job": store.next_job(node_id)}
+
+
+@app.get("/jobs")
+def list_jobs(status: str | None = None, limit: int = 50) -> dict:
+    return {"jobs": store.list_jobs(status=status, limit=limit)}
+
+
+@app.post("/jobs/result")
+def submit_result(body: JobResult) -> dict:
+    result = store.submit_result(body.model_dump())
+    scored = verifier.score_result(body.job_id, body.node_id, body.status, body.output_summary)
+    verification = store.record_verification(result, scored.score, scored.passed, scored.reason)
+    return {"ok": True, "result": result, "verification": verification}
+
+
+@app.post("/training/jobs")
+def create_training_job(body: TrainingJobRequest) -> dict:
+    job = training.build_job(body.kind, body.name, body.dataset_uri, body.base_model, body.max_steps, body.notes)
+    saved = store.enqueue_job(job["job_id"], job["job_type"], job["payload"])
+    return {"ok": True, "job": saved}
+
+
+@app.post("/models/versions")
+def create_model_version(body: ModelVersionRequest) -> dict:
+    record = training.build_model_version(body.name, body.base_model, body.source_job_id, body.notes)
+    saved = store.register_model_version(record)
+    return {"ok": True, "model": saved}
+
+
+@app.get("/models/versions")
+def list_model_versions(limit: int = 50) -> dict:
+    return {"models": store.list_model_versions(limit=limit)}
+
+
+@app.get("/dashboard/summary")
+def dashboard_summary() -> dict:
+    return dashboard.summary()
+
+
+@app.get("/dashboard/jobs")
+def dashboard_jobs(limit: int = 20) -> dict:
+    return dashboard.recent_jobs(limit=limit)
+
+
+@app.get("/dashboard/models")
+def dashboard_models(limit: int = 20) -> dict:
+    return dashboard.model_versions(limit=limit)
+
+
+@app.post("/ai/chat")
+def chat(body: ChatRequest) -> dict:
+    memory = memories.list(body.user_id)
+    try:
+        answer = ollama.chat(body.prompt, body.mode, memory)
+        source = "ollama"
+    except OllamaUnavailable:
+        answer = "Ailovanta local fallback: connect a local model runtime to enable real AI responses."
+        source = "fallback"
+    usage_store.record(body.user_id, "chat", 1, source, {"mode": body.mode})
+    if body.remember:
+        memories.add(body.prompt, body.user_id)
+    return {"answer": answer, "source": source}
+
+
+@app.get("/usage/summary")
+def usage_summary(user_id: str = "local") -> dict:
+    return usage_store.summary(user_id=user_id)
+
+
+@app.post("/memory")
+def add_memory(body: MemoryRequest) -> dict:
+    return {"memories": memories.add(body.memory, body.user_id)}
+
+
+@app.get("/memory")
+def list_memory(user_id: str = "local") -> dict:
+    return {"memories": memories.list(user_id)}
+
+
+@app.delete("/memory")
+def wipe_memory(user_id: str = "local") -> dict:
+    memories.wipe(user_id)
+    return {"ok": True}
