@@ -1,5 +1,7 @@
 # Ailovanta
 
+[![Ailovanta CI](https://github.com/ZqiEE/ailovanta/actions/workflows/validate.yml/badge.svg)](https://github.com/ZqiEE/ailovanta/actions/workflows/validate.yml)
+
 > AI powered by the world's distributed compute.
 
 Ailovanta is a distributed AI compute network MVP. The public repository contains the product shell, local API, node client, demo pages, tests, and safe interface examples. The production core stays in a separate private repository.
@@ -140,6 +142,7 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 - `SECURITY_BOUNDARY.md` — public/private boundary
 - `PRIVATE_CORE.md` — private core plan
 - `docs/PROJECT_STATUS.md` — current done/not-done boundary
+- `docs/PUBLIC_LAUNCH_CHECKLIST.md` — public launch checklist
 - `docs/LOCAL_RUNTIME.md` — local run guide
 - `docs/API.md` — local API reference
 - `docs/ARCHITECTURE.md` — system overview
