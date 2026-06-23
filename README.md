@@ -47,6 +47,8 @@ https://github.com/ZqiEE/ailovanta-core.git
 - Lightweight result verification
 - Runtime model manifest registry
 - Runtime node registry
+- Persistent runtime store
+- Runtime assignment history
 - Warm-cache, trust, privacy, latency, price, and GPU-memory-aware Runtime Router
 - Trust updates after verified results
 - Queue recovery endpoints
@@ -105,12 +107,19 @@ Run the smoke flow after the API is running:
 python scripts/smoke_api.py --api-url http://127.0.0.1:8000
 ```
 
+Run the runtime demo flow after the API is running:
+
+```bash
+python scripts/demo_runtime_flow.py --api-url http://127.0.0.1:8000
+```
+
 ## Core local flow
 
 ```text
 POST /runtime/models/register
 POST /runtime/nodes/register
 POST /runtime/route
+GET  /runtime/assignments
 POST /nodes/register
 POST /nodes/heartbeat
 GET  /jobs/next
@@ -151,6 +160,7 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 - `docs/CHANGELOG.md` — release history
 - `docs/PROJECT_STATUS.md` — current done/not-done boundary
 - `docs/PUBLIC_LAUNCH_CHECKLIST.md` — public launch checklist
+- `docs/RUNTIME_DEMO.md` — runtime demo guide
 - `docs/TECHNICAL_OVERVIEW.md` — technical overview
 - `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
 - `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
