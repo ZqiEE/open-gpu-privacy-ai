@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Open GPU Privacy AI Dashboard</title>
+<title>Ailovanta Dashboard</title>
 <style>
 body{margin:0;background:#050505;color:#f8fafc;font-family:Inter,Arial,sans-serif}main{max-width:1180px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{border:1px solid #27272a;background:#111;border-radius:20px;padding:18px}.card b{font-size:30px;display:block}button,input{border:1px solid #333;background:#0b0b0b;color:#fff;border-radius:12px;padding:10px 12px}button{cursor:pointer}pre{white-space:pre-wrap;overflow:auto;background:#060606;border:1px solid #27272a;border-radius:16px;padding:14px}.muted{color:#a1a1aa}.ok{color:#22c55e}.warn{color:#f59e0b}.blue{color:#60a5fa}@media(max-width:900px){.grid{grid-template-columns:1fr}.top{display:block}}
 </style>
 </head>
 <body>
 <main>
-<div class="top"><div><h1>Open GPU Privacy AI Dashboard</h1><p class="muted">Local dashboard for nodes, jobs, verification, and model registry.</p></div><div><input id="api" value="http://127.0.0.1:8000" /><button id="refresh">Refresh</button></div></div>
+<div class="top"><div><h1>Ailovanta Dashboard</h1><p class="muted">Local dashboard for distributed AI nodes, jobs, verification, and model registry.</p></div><div><input id="api" value="http://127.0.0.1:8000" /><button id="refresh">Refresh</button></div></div>
 <div class="grid">
   <div class="card"><span class="muted">Nodes</span><b class="ok" id="nodes">-</b></div>
   <div class="card"><span class="muted">Total jobs</span><b class="blue" id="totalJobs">-</b></div>
