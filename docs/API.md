@@ -28,6 +28,7 @@ GET /ready
 GET /network/status
 GET /verification/status
 GET /dashboard/summary
+GET /runtime/status
 ```
 
 Example:
@@ -66,6 +67,75 @@ curl -X POST http://127.0.0.1:8000/nodes/heartbeat \
   -H "Content-Type: application/json" \
   -d '{"node_id":"node_xxx","status":"online"}'
 ```
+
+## Runtime router
+
+```text
+POST /runtime/models/register
+GET  /runtime/models
+POST /runtime/nodes/register
+GET  /runtime/nodes
+GET  /runtime/status
+POST /runtime/route
+```
+
+Register a model manifest:
+
+```bash
+curl -X POST http://127.0.0.1:8000/runtime/models/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "ailovanta-7b",
+    "version": "1.0.0",
+    "manifest_hash": "sha256:model7b",
+    "privacy_level": "public",
+    "min_gpu_memory_gb": 8,
+    "allowed_pools": ["small_gpu_pool", "large_gpu_pool", "enterprise_pool"],
+    "quantization": "int4",
+    "context_length": 8192
+  }'
+```
+
+Register a warm runtime node:
+
+```bash
+curl -X POST http://127.0.0.1:8000/runtime/nodes/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runtime_id": "rt-warm-1",
+    "node_id": "node-gpu-1",
+    "pool": "small_gpu_pool",
+    "region": "us-east",
+    "gpu_memory_gb": 24,
+    "available_gpu_memory_gb": 16,
+    "trust_score": 0.9,
+    "current_load": 0.2,
+    "price_per_1k_tokens": 0.03,
+    "latency_ms": 260,
+    "supported_engines": ["vllm"],
+    "cached_models": ["ailovanta-7b:1.0.0"]
+  }'
+```
+
+Route a request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/runtime/route \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_id": "req-1",
+    "model_id": "ailovanta-7b",
+    "version": "1.0.0",
+    "task_type": "chat_completion",
+    "privacy_level": "public",
+    "latency_target_ms": 1000,
+    "max_price_per_1k_tokens": 0.05,
+    "region_hint": "us-east",
+    "verification_required": true
+  }'
+```
+
+The router prefers warm cached models, correct privacy tier, enough GPU memory, high trust score, low load, low latency, and acceptable price.
 
 ## Jobs
 
@@ -160,13 +230,16 @@ curl -X POST http://127.0.0.1:8000/models/versions \
 
 ## Minimal flow
 
-1. Register node
-2. Fetch next job
-3. Submit result
-4. Check verification status
-5. Create training job
-6. Register model version
-7. Read dashboard summary
+1. Register runtime model
+2. Register runtime node with cached model
+3. Route runtime request
+4. Register regular node
+5. Fetch next job
+6. Submit result
+7. Check verification status
+8. Create training job
+9. Register model version
+10. Read dashboard summary
 
 ## Smoke test
 
