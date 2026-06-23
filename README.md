@@ -18,7 +18,7 @@ people run useful machines
 -> useful contributors earn access and reputation
 ```
 
-The current repository is not claiming a finished global training network. It is a working local foundation for the public layer: node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, dashboard data, and local AI fallback.
+The current repository is not claiming a finished global training network. It is a working local foundation for the public layer: node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, and local AI fallback.
 
 ## Repositories
 
@@ -45,6 +45,9 @@ https://github.com/ZqiEE/ailovanta-core.git
 - Node registration and heartbeat
 - Job queue and result submission
 - Lightweight result verification
+- Runtime model manifest registry
+- Runtime node registry
+- Warm-cache, trust, privacy, latency, price, and GPU-memory-aware Runtime Router
 - Trust updates after verified results
 - Queue recovery endpoints
 - Training job planner
@@ -105,6 +108,9 @@ python scripts/smoke_api.py --api-url http://127.0.0.1:8000
 ## Core local flow
 
 ```text
+POST /runtime/models/register
+POST /runtime/nodes/register
+POST /runtime/route
 POST /nodes/register
 POST /nodes/heartbeat
 GET  /jobs/next
