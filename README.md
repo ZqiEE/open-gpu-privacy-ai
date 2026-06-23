@@ -18,7 +18,21 @@ people run useful machines
 -> useful contributors earn access and reputation
 ```
 
-The current repository is not claiming a finished global training network. It is a working local foundation for the public layer: node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, local chat API, and local AI fallback.
+The current repository is not claiming a finished global training network. It is a working local foundation for the public layer: native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, and local AI fallback.
+
+## API direction
+
+Ailovanta Native Run API is the main protocol:
+
+```text
+POST /ailovanta/v1/run
+```
+
+The compatibility chat endpoint is kept for existing client integrations:
+
+```text
+POST /v1/chat/completions
+```
 
 ## Repositories
 
@@ -41,7 +55,8 @@ https://github.com/ZqiEE/ailovanta-core.git
 - FastAPI runtime: `api/main.py`
 - Served app route: `/app`
 - Served dashboard route: `/dashboard`
-- V1 chat endpoint: `/v1/chat/completions`
+- Native run endpoint: `/ailovanta/v1/run`
+- Compatibility chat endpoint: `/v1/chat/completions`
 - SQLite scheduler store
 - Node registration and heartbeat
 - Job queue and result submission
@@ -91,10 +106,11 @@ uvicorn api.main:app --reload
 Open after the API starts:
 
 ```text
-API docs:  http://127.0.0.1:8000/docs
-App:       http://127.0.0.1:8000/app
-Dashboard: http://127.0.0.1:8000/dashboard
-Chat API:  http://127.0.0.1:8000/v1/chat/completions
+API docs:   http://127.0.0.1:8000/docs
+App:        http://127.0.0.1:8000/app
+Dashboard:  http://127.0.0.1:8000/dashboard
+Native API: http://127.0.0.1:8000/ailovanta/v1/run
+Compat API: http://127.0.0.1:8000/v1/chat/completions
 ```
 
 Run a local node in another terminal:
@@ -118,6 +134,7 @@ python scripts/demo_runtime_flow.py --api-url http://127.0.0.1:8000
 ## Core local flow
 
 ```text
+POST /ailovanta/v1/run
 POST /v1/chat/completions
 POST /runtime/models/register
 POST /runtime/nodes/register
@@ -163,7 +180,8 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 - `docs/CHANGELOG.md` — release history
 - `docs/PROJECT_STATUS.md` — current done/not-done boundary
 - `docs/PUBLIC_LAUNCH_CHECKLIST.md` — public launch checklist
-- `docs/V1_CHAT_API.md` — local v1 chat API guide
+- `docs/NATIVE_RUN_API.md` — native run API guide
+- `docs/V1_CHAT_API.md` — compatibility chat API guide
 - `docs/RUNTIME_DEMO.md` — runtime demo guide
 - `docs/TECHNICAL_OVERVIEW.md` — technical overview
 - `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
