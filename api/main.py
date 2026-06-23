@@ -100,6 +100,31 @@ def ready() -> dict:
     return {"ok": True, "scheduler_store": status["store"], "path": status["path"]}
 
 
+@app.get("/network/status")
+def network_status() -> dict:
+    return store.status()
+
+
+@app.get("/verification/status")
+def verification_status() -> dict:
+    status = store.status()
+    return {
+        "verifications": status["verifications"],
+        "passed_verifications": status["passed_verifications"],
+        "pass_rate": round(status["passed_verifications"] / status["verifications"], 3) if status["verifications"] else 0.0,
+    }
+
+
+@app.post("/jobs/retry-failed")
+def retry_failed_jobs(max_attempts: int = 3) -> dict:
+    return store.retry_failed_jobs(max_attempts=max_attempts)
+
+
+@app.post("/jobs/requeue-stale")
+def requeue_stale_jobs(older_than_minutes: int = 30) -> dict:
+    return store.requeue_stale_assigned(older_than_minutes=older_than_minutes)
+
+
 @app.post("/nodes/register")
 def register_node(body: NodeRegister) -> dict:
     return store.register_node(body.model_dump())
