@@ -23,7 +23,13 @@ The public repository can reference these systems at a high level, but it should
 Current private repository:
 
 ```text
-open-gpu-privacy-ai-core
+https://github.com/ZqiEE/ailovanta-core.git
+```
+
+Public repository:
+
+```text
+https://github.com/ZqiEE/ailovanta.git
 ```
 
 Public brand:
