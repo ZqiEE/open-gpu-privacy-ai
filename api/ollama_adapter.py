@@ -49,9 +49,9 @@ class OllamaAdapter:
     def _system_prompt(mode: str, memory: list[str]) -> str:
         memory_text = "\n".join(f"- {item}" for item in memory[-8:]) or "No stored memory."
         return (
-            "You are Open GPU Privacy AI, a private AI assistant inside a local runtime MVP. "
+            "You are Ailovanta, an AI assistant inside a local distributed compute MVP. "
             "Answer directly and practically. "
             f"Current mode: {mode}.\n"
             f"Local user memory:\n{memory_text}\n"
-            "Focus on product design, local AI runtime, node networks, robots, and developer execution."
+            "Focus on AI runtime, distributed compute, node networks, training orchestration, and developer execution."
         )
