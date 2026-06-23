@@ -19,6 +19,7 @@ paths = {
     "job_runner": root / "node_client" / "job_runner.py",
     "deployment_doc": root / "docs" / "DEPLOYMENT.md",
     "private_core_doc": root / "PRIVATE_CORE.md",
+    "dockerfile": root / "Dockerfile",
     "tests": root / "tests" / "test_api_contract.py",
     "health_tests": root / "tests" / "test_health_ready.py",
     "workflow": root / ".github" / "workflows" / "validate.yml",
@@ -51,10 +52,13 @@ for marker in ["Ailovanta", "Ailovanta Core", "H-SwarmTrain", "ailovanta.git", "
 api_text = paths["api"].read_text(encoding="utf-8")
 for marker in [
     "FastAPI",
+    "FileResponse",
     "Ailovanta API",
     "SchedulerStore",
     "TrainingPlanner",
     "VerificationEngine",
+    "/app",
+    "/dashboard",
     "/health",
     "/ready",
     "/network/status",
@@ -91,6 +95,10 @@ for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_loggin
 for text_path in [paths["dashboard"], paths["deployment_doc"], paths["private_core_doc"]]:
     text = text_path.read_text(encoding="utf-8")
     assert "Ailovanta" in text or "ailovanta" in text, f"missing Ailovanta marker in {text_path.relative_to(root)}"
+
+docker_text = paths["dockerfile"].read_text(encoding="utf-8")
+for marker in ["dashboard.html", "BRAND.md", "SECURITY_BOUNDARY.md", "PRIVATE_CORE.md"]:
+    assert marker in docker_text, f"missing Dockerfile marker: {marker}"
 
 workflow_text = paths["workflow"].read_text(encoding="utf-8")
 for marker in ["pip install -r requirements.txt", "python validate.py", "python -m pytest -q"]:
