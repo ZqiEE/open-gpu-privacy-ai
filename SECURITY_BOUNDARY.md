@@ -1,6 +1,6 @@
-# Security Boundary
+# Ailovanta Security Boundary
 
-This repository is the public interface and demonstration layer for Open GPU Privacy AI.
+This repository is the public interface and demonstration layer for Ailovanta.
 
 ## Public layer
 
@@ -14,6 +14,7 @@ The public layer may include:
 - public contract drafts
 - contribution guidelines
 - non-sensitive tests
+- public node shell
 
 ## Private core layer
 
@@ -43,6 +44,20 @@ The asset layer must never be committed to Git:
 - logs containing user data
 - private environment files
 - private object store snapshots
+
+## Repositories
+
+Public repository:
+
+```text
+https://github.com/ZqiEE/ailovanta.git
+```
+
+Private core repository:
+
+```text
+https://github.com/ZqiEE/ailovanta-core.git
+```
 
 ## Rule
 
