@@ -1,4 +1,4 @@
-name: Validate MVP
+name: Ailovanta CI
 
 on:
   push:
