@@ -19,7 +19,7 @@ def get_health(version: str) -> dict:
     return asdict(
         HealthStatus(
             ok=True,
-            service="open-gpu-privacy-ai-api",
+            service="ailovanta-api",
             version=version,
             uptime_seconds=round(time() - STARTED_AT, 3),
         )
