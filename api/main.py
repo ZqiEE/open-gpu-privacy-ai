@@ -16,6 +16,7 @@ from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
 APP_VERSION = "1.5.0"
+TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 
 app = FastAPI(title="Ailovanta API", version=APP_VERSION)
 
@@ -166,6 +167,12 @@ def create_training_job(body: TrainingJobRequest) -> dict:
     job = training.build_job(body.kind, body.name, body.dataset_uri, body.base_model, body.max_steps, body.notes)
     saved = store.enqueue_job(job["job_id"], job["job_type"], job["payload"])
     return {"ok": True, "job": saved}
+
+
+@app.get("/training/jobs")
+def list_training_jobs(limit: int = 50) -> dict:
+    jobs = [job for job in store.list_jobs(limit=limit) if job["type"] in TRAINING_JOB_TYPES]
+    return {"jobs": jobs}
 
 
 @app.post("/models/versions")
