@@ -13,6 +13,10 @@ COPY node_client ./node_client
 COPY docs ./docs
 COPY validate.py ./validate.py
 COPY index.html ./index.html
+COPY dashboard.html ./dashboard.html
+COPY BRAND.md ./BRAND.md
+COPY SECURITY_BOUNDARY.md ./SECURITY_BOUNDARY.md
+COPY PRIVATE_CORE.md ./PRIVATE_CORE.md
 
 EXPOSE 8000
 
