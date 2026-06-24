@@ -37,10 +37,40 @@ uvicorn api.main_owned:app --reload
 uvicorn api.worker:app --port 9001 --reload
 ```
 
+## Register runtime model and trusted node
+
+Run this after the API is up:
+
+```bash
+python scripts/register_owned_runtime.py
+```
+
+This registers:
+
+```text
+model: ailovanta-owned:candidate
+node: node-owned-1
+runtime: rt-owned-1
+pool: trusted_runtime_pool
+```
+
 ## Readiness check
 
 ```bash
 python scripts/check_owned_runtime_ready.py
+```
+
+## Owned-chat smoke call
+
+```bash
+python scripts/call_owned_chat.py
+```
+
+The call must return:
+
+```text
+owned_model_ready: true
+source: ailovanta-worker-local-runtime or ailovanta-worker-backend
 ```
 
 ## Real production rule
