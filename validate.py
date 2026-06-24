@@ -26,6 +26,7 @@ required_files = [
     "tests/test_conversation_context.py",
     "tests/test_frontend_markers.py",
     "tests/test_guest_chat_flow.py",
+    "tests/test_health_model_status.py",
     "tests/test_github_auth_api.py",
     "tests/test_conversations_api.py",
     "tests/test_native_run_api.py",
@@ -43,7 +44,8 @@ version = (root / "VERSION").read_text(encoding="utf-8").strip()
 assert version in {"1.9.0-github-auth", "1.10.0-guest-first", "1.11.0"}, f"unexpected version: {version}"
 
 checks = {
-    "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList"],
+    "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList", "Model adapter", "Fallback: enabled"],
+    "api/health.py": ["local_model", "ollama", "base_url", "fallback"],
     "api/main.py": [
         "build_chat_context",
         "context_messages_used",
@@ -64,6 +66,7 @@ checks = {
     "tests/test_conversation_context.py": ["build_chat_context", "context_to_text"],
     "tests/test_frontend_markers.py": ["conversationList", "No login required", "context_messages_used"],
     "tests/test_guest_chat_flow.py": ["context_messages_used", "/ailovanta/v1/conversations", "/reputation/leaderboard"],
+    "tests/test_health_model_status.py": ["local_model", "ollama", "base_url"],
     "tests/test_reputation.py": ["/reputation/leaderboard", "/reputation/summary"],
     "tests/test_usage_api.py": ["/usage/events", "/usage/summary"],
 }
