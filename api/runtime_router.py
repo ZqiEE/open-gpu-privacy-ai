@@ -22,6 +22,7 @@ class ModelManifest:
     context_length: int = 4096
     adapter_compatible: bool = True
     status: str = "active"
+    artifact_uri: str = ""
     created_at: float = field(default_factory=time)
 
     @property
@@ -80,6 +81,7 @@ class RuntimeAssignment:
     region: str
     cache_state: Literal["warm", "cold"]
     model_manifest_hash: str
+    artifact_uri: str
     estimated_latency_ms: int
     price_per_1k_tokens: float
     verification_required: bool
@@ -147,6 +149,7 @@ class RuntimeRegistry:
                 "request_id": request.request_id,
                 "model_key": request.model_key,
                 "model_manifest_hash": manifest.manifest_hash,
+                "artifact_uri": manifest.artifact_uri,
             }
 
         best = sorted(candidates, key=lambda item: item.score, reverse=True)[0]
@@ -186,6 +189,7 @@ class RuntimeRegistry:
             region=runtime.region,
             cache_state="warm" if warm else "cold",
             model_manifest_hash=manifest.manifest_hash,
+            artifact_uri=manifest.artifact_uri,
             estimated_latency_ms=runtime.latency_ms,
             price_per_1k_tokens=runtime.price_per_1k_tokens,
             verification_required=request.verification_required,
