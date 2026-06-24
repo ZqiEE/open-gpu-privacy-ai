@@ -3,7 +3,9 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="Ailovanta Worker", version="1.0.1")
+from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
+
+app = FastAPI(title="Ailovanta Worker", version="1.0.2")
 
 
 class InferRequest(BaseModel):
@@ -17,7 +19,7 @@ class InferRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "ailovanta-worker", "mode": "backend-required"}
+    return {"ok": True, "service": "ailovanta-worker", "mode": "local-model-runtime"}
 
 
 @app.post("/v1/owned/infer")
@@ -26,12 +28,17 @@ def infer(body: InferRequest) -> dict:
         from api.model_backend_client import ModelBackendClient
 
         answer = ModelBackendClient().chat(prompt=body.prompt)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail="model backend unavailable: " + str(exc)) from exc
+        source = "ailovanta-worker-backend"
+    except Exception:
+        try:
+            answer = OllamaAdapter().chat(body.prompt, "open_research", [])
+            source = "ailovanta-worker-local-runtime"
+        except OllamaUnavailable as exc:
+            raise HTTPException(status_code=503, detail="model runtime unavailable: " + str(exc)) from exc
 
     return {
         "answer": answer,
-        "source": "ailovanta-worker-v1",
+        "source": source,
         "model_id": body.model_id,
         "version": body.version,
         "runtime_id": body.runtime_id,
