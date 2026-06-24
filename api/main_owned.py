@@ -5,12 +5,14 @@ from pydantic import BaseModel
 from api.chain_registry_api import router as chain_registry_router
 from api.core_result_api import router as core_result_router
 from api.data_rights_api import router as data_rights_router
+from api.foundation_job_api import router as foundation_job_router
 from api.main import app, conversations, runtime_registry, usage_store
 from api.owned_model_runtime import OwnedModelRequest, OwnedModelRuntime, OwnedModelUnavailable
 
 app.include_router(data_rights_router)
 app.include_router(core_result_router)
 app.include_router(chain_registry_router)
+app.include_router(foundation_job_router)
 
 
 class OwnedChatRequest(BaseModel):
