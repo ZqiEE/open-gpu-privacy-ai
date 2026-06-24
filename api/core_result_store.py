@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -120,8 +121,11 @@ class CoreResultStore:
 
     @staticmethod
     def _manifest_hash(result: dict) -> str:
-        raw = json.dumps(result["manifest"], ensure_ascii=False, sort_keys=True)
-        return "sha256:" + str(abs(hash(raw)))
+        artifact = result.get("manifest", {}).get("artifact") or {}
+        if artifact.get("artifact_hash"):
+            return str(artifact["artifact_hash"])
+        raw = json.dumps(result["manifest"], ensure_ascii=False, sort_keys=True).encode("utf-8")
+        return "sha256:" + hashlib.sha256(raw).hexdigest()
 
     @staticmethod
     def _api_result(row: dict) -> dict:

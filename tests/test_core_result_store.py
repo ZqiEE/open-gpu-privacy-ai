@@ -28,3 +28,4 @@ def test_register_core_result_and_runtime_model(tmp_path: Path) -> None:
     assert registered["runtime_model"]["version"] == "ailovanta-local-v1"
     assert registered["runtime_model"]["privacy_level"] == "protected"
     assert "trusted_runtime_pool" in registered["runtime_model"]["allowed_pools"]
+    assert registered["runtime_model"]["manifest_hash"].startswith("sha256:")
