@@ -23,6 +23,7 @@ authorized data shards
 POST /foundation/jobs
 GET /foundation/jobs
 GET /foundation/jobs/{job_id}
+POST /foundation/jobs/{job_id}/export
 ```
 
 ## Payload
@@ -56,9 +57,21 @@ GET /foundation/jobs/{job_id}
 }
 ```
 
-## Next step
+## Export to core
 
-Export queued foundation jobs to `ailovanta-core` and run:
+API:
+
+```text
+POST /foundation/jobs/{job_id}/export
+```
+
+CLI:
+
+```bash
+python scripts/export_foundation_job.py foundation_job_xxx --output-dir runtime_data/foundation_exports
+```
+
+Then run inside `ailovanta-core`:
 
 ```bash
 python scripts/run_foundation_job.py foundation_job.json --output runtime_data/foundation_result.json
