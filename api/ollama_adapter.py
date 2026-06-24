@@ -9,7 +9,7 @@ import httpx
 @dataclass
 class OllamaConfig:
     base_url: str = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    model: str = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+    model: str = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
     timeout_seconds: float = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "30"))
 
 
@@ -18,6 +18,8 @@ class OllamaUnavailable(RuntimeError):
 
 
 class OllamaAdapter:
+    """Temporary local bootstrap model adapter for the public MVP."""
+
     def __init__(self, config: OllamaConfig | None = None) -> None:
         self.config = config or OllamaConfig()
 
@@ -64,6 +66,8 @@ class OllamaAdapter:
         return (
             "You are Ailovanta, an AI assistant inside a local distributed compute MVP. "
             "Answer directly and practically. "
+            "Model boundary: current inference may be served by a temporary local bootstrap model through Ollama. "
+            "Ailovanta-owned foundation model status depends on verified runtime manifests promoted from core training artifacts. "
             f"Current mode: {mode}.\n"
             f"Local user memory:\n{memory_text}\n"
             "Focus on AI runtime, distributed compute, node networks, training orchestration, and developer execution. "
