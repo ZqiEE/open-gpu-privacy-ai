@@ -48,7 +48,7 @@ version = (root / "VERSION").read_text(encoding="utf-8").strip()
 assert version in {"1.9.0-github-auth", "1.10.0-guest-first", "1.11.0"}, f"unexpected version: {version}"
 
 checks = {
-    "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList", "Model adapter", "Fallback: enabled", "Message Ailovanta", "How can I help?", "Enter to send", "Shift+Enter", "markdownLite", "Thinking..."],
+    "index.html": ["Guest mode first", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList", "Model adapter", "Fallback: enabled", "Message Ailovanta", "How can I help?", "Enter to send", "Shift+Enter", "markdownLite", "Thinking..."],
     "api/sqlite_utils.py": ["ClosingConnection", "connect_sqlite", "self.close()"],
     "api/health.py": ["local_model", "ollama", "base_url", "fallback"],
     "api/main.py": [
