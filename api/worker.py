@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-import os
-from typing import Any
-
-import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from api.model_backend_client import ModelBackendClient
+app = FastAPI(title="Ailovanta Worker", version="1.0.1")
 
-app = FastAPI(title="Ailovanta Worker", version="1.0.0")
-
-client = ModelBackendClient()
 
 class InferRequest(BaseModel):
     prompt: str
@@ -24,15 +17,17 @@ class InferRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "ailovanta-worker"}
+    return {"ok": True, "service": "ailovanta-worker", "mode": "backend-required"}
 
 
 @app.post("/v1/owned/infer")
 def infer(body: InferRequest) -> dict:
     try:
-        answer = client.chat(prompt=body.prompt)
+        from api.model_backend_client import ModelBackendClient
+
+        answer = ModelBackendClient().chat(prompt=body.prompt)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise HTTPException(status_code=503, detail="model backend unavailable: " + str(exc)) from exc
 
     return {
         "answer": answer,
