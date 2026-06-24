@@ -4,8 +4,10 @@ services:
     ports:
       - "8000:8000"
     environment:
+      AILOVANTA_MODEL_STAGE: "bootstrap_local_runtime"
+      AILOVANTA_OWNED_MODEL_READY: "false"
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
-      OLLAMA_MODEL: "qwen2.5:3b"
+      OLLAMA_MODEL: "llama3.2:3b"
       OLLAMA_TIMEOUT_SECONDS: "30"
     volumes:
       - ./runtime_data:/app/runtime_data
