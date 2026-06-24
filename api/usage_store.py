@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from api.sqlite_utils import connect_sqlite
+
 
 class UsageStore:
     def __init__(self, path: str | Path = "runtime_data/usage.sqlite3") -> None:
@@ -14,9 +16,7 @@ class UsageStore:
         self._init_db()
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _init_db(self) -> None:
         with self.connect() as conn:
