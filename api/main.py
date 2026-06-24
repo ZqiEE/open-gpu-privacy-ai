@@ -93,6 +93,14 @@ class MemoryRequest(BaseModel):
     user_id: str = "local"
 
 
+class UsageEventRequest(BaseModel):
+    user_id: str = "local"
+    event_type: str
+    quantity: float = Field(default=1, ge=0)
+    source: str = "local"
+    metadata: dict = Field(default_factory=dict)
+
+
 class ConversationCreate(BaseModel):
     user_id: str = "local"
     title: str = "New chat"
@@ -260,6 +268,16 @@ def verification_status() -> dict:
         "passed_verifications": status["passed_verifications"],
         "pass_rate": round(status["passed_verifications"] / status["verifications"], 3) if status["verifications"] else 0.0,
     }
+
+
+@app.get("/reputation/leaderboard")
+def reputation_leaderboard(limit: int = 20) -> dict:
+    return reputation.leaderboard(limit=limit)
+
+
+@app.get("/reputation/summary")
+def reputation_summary() -> dict:
+    return reputation.summary()
 
 
 @app.post("/jobs/retry-failed")
@@ -485,6 +503,17 @@ def compatibility_chat_completions(body: ChatCompletionRequest) -> dict:
         answer = "Ailovanta local fallback: connect Ollama or another local runtime to enable real model responses."
     usage_store.record(body.user or "compatibility", "chat.completions", 1, body.model, {"endpoint": "/v1/chat/completions"})
     return build_chat_completion_response(body.model, answer, prompt)
+
+
+@app.post("/usage/events")
+def create_usage_event(body: UsageEventRequest) -> dict:
+    event = usage_store.record(body.user_id, body.event_type, body.quantity, body.source, body.metadata)
+    return {"ok": True, "event": event}
+
+
+@app.get("/usage/events")
+def list_usage_events(user_id: str | None = None, limit: int = 100) -> dict:
+    return {"events": usage_store.list_events(user_id=user_id, limit=limit)}
 
 
 @app.get("/usage/summary")
