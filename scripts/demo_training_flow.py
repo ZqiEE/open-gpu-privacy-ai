@@ -5,6 +5,9 @@ import argparse
 import httpx
 
 
+BOOTSTRAP_BASE_MODEL = "ailovanta-bootstrap:local"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a local training job demo flow")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
@@ -18,9 +21,9 @@ def main() -> None:
                 "kind": "rag_import",
                 "name": "demo-rag-import",
                 "dataset_uri": "file://local/demo-docs",
-                "base_model": "qwen2.5:3b",
+                "base_model": BOOTSTRAP_BASE_MODEL,
                 "max_steps": 100,
-                "notes": "demo training flow",
+                "notes": "demo training flow; public/core bridge not attached yet",
             },
         )
         training_job.raise_for_status()
@@ -30,10 +33,10 @@ def main() -> None:
         model = client.post(
             f"{api}/models/versions",
             json={
-                "name": "demo-private-ai-model",
-                "base_model": "qwen2.5:3b",
+                "name": "demo-ailovanta-model",
+                "base_model": BOOTSTRAP_BASE_MODEL,
                 "source_job_id": job["id"],
-                "notes": "model version created from demo flow",
+                "notes": "model version metadata created from demo flow",
             },
         )
         model.raise_for_status()
