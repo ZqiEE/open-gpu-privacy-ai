@@ -17,6 +17,24 @@ Guest mode first.
 
 GitHub OAuth and payment docs may exist for later, but they are not the default user path.
 
+## Current model backend truth
+
+The current chat inference path uses a **local bootstrap runtime** through Ollama. It is not Alibaba Cloud, not DashScope, and not yet a production Ailovanta-owned foundation model.
+
+The intended Ailovanta-owned model path is:
+
+```text
+public training job
+-> ailovanta-core H-SwarmTrain Lite round
+-> validation and aggregation
+-> artifact metadata
+-> model version
+-> runtime manifest
+-> trusted runtime pool
+```
+
+See `docs/MODEL_BACKEND.md` for the exact boundary.
+
 ## What it is
 
 Ailovanta explores a simple loop:
@@ -146,6 +164,7 @@ python -m pytest -q
 
 ## Docs
 
+- `docs/MODEL_BACKEND.md` — current bootstrap model boundary and Ailovanta-owned model path
 - `docs/NEXT_STAGE_PRD.md` — guest chat core product requirements
 - `docs/NEXT_STAGE_CODEX_TASKS.md` — execution plan for guest chat core
 - `docs/AUTH_MODEL.md` — guest-first access model
