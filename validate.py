@@ -40,7 +40,7 @@ for rel in required_files:
     assert path.exists(), f"missing file: {rel}"
 
 version = (root / "VERSION").read_text(encoding="utf-8").strip()
-assert version in {"1.9.0-github-auth", "1.10.0-guest-first"}, f"unexpected version: {version}"
+assert version in {"1.9.0-github-auth", "1.10.0-guest-first", "1.11.0"}, f"unexpected version: {version}"
 
 checks = {
     "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList"],
