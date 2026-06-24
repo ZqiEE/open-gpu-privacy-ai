@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import sys
-from uuid import uuid4
 
 import httpx
 
@@ -19,6 +18,7 @@ def main() -> int:
     model_id = os.getenv("AILOVANTA_OWNED_MODEL_ID", "ailovanta-owned")
     version = os.getenv("AILOVANTA_OWNED_MODEL_VERSION", "candidate")
     manifest_hash = os.getenv("AILOVANTA_OWNED_MANIFEST_HASH", "sha256:local-owned-candidate")
+    artifact_hash = os.getenv("AILOVANTA_OWNED_ARTIFACT_HASH", manifest_hash)
     runtime_id = os.getenv("AILOVANTA_RUNTIME_ID", "rt-owned-1")
     node_id = os.getenv("AILOVANTA_NODE_ID", "node-owned-1")
 
@@ -60,8 +60,22 @@ def main() -> int:
         },
     )
 
+    chain_event = post_json(
+        api_url,
+        "/chain/events",
+        {
+            "event_type": "runtime_manifest_registered",
+            "model_id": model_id,
+            "version": version,
+            "artifact_hash": artifact_hash,
+            "runtime_manifest_hash": manifest_hash,
+            "metadata": {"runtime_id": runtime_id, "node_id": node_id},
+        },
+    )
+
     print("registered model", model)
     print("registered runtime", node)
+    print("registered chain event", chain_event)
     return 0
 
 
