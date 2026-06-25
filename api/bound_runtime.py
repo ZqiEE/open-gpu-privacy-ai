@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from api.artifact_binding import ArtifactBindingStore
+from api.runtime_ref import to_local_path
 
 
 class BoundRuntimeUnavailable(RuntimeError):
@@ -64,14 +64,7 @@ class ArtifactBoundRuntime:
 
 
 def resolve_local_ref(value: str) -> Path | None:
-    if not value:
-        return None
-    parsed = urlparse(value)
-    if parsed.scheme == "file":
-        return Path(parsed.path)
-    if parsed.scheme == "":
-        return Path(value)
-    return None
+    return to_local_path(value)
 
 
 def build_checkpoint_bound_answer(prompt: str, binding: dict[str, Any], checkpoint: dict[str, Any]) -> str:
