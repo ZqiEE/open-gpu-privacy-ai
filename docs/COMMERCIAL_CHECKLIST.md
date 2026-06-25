@@ -1,6 +1,6 @@
 # Commercial Checklist
 
-This checklist is the gap between the local owned-runtime scaffold and a commercial deployment.
+This checklist is the gap between the local owned-runtime scaffold and a commercial distributed deployment.
 
 ## Code gate
 
@@ -14,13 +14,14 @@ python scripts/prod_ready.py --result runtime_data/local_loop/foundation_result.
 ## Required external resources
 
 ```text
-HTTPS domain
+HTTPS domain / gateway entry
 production database or durable SQLite volume strategy
-object storage / model registry
-real GPU worker pool
-real model checkpoint files
-worker credentials / attestation
-external anchor / chain adapter
+public node clients installed on independent machines
+external machines contributing GPU/CPU/storage capacity
+distributed artifact cache / chunk storage / model registry manifest
+real model checkpoint files and chunk manifests
+worker credentials / attestation / node proof
+external anchor / chain adapter or durable notarization
 monitoring and alerting
 backup and recovery
 rate limits and abuse controls
@@ -37,7 +38,9 @@ route_health returns ok
 owned-chat-default returns owned_model_ready true
 rollback disables/restores active route
 worker result requires valid node proof
-artifact hash and anchor record exist
+artifact manifest has chunk hashes and replica sources
+anchor record exists for promoted artifact or checkpoint set
+runtime router assigns work to verified capable nodes
 ```
 
 ## Current local scaffold
@@ -50,12 +53,16 @@ RouteHealth
 ReleaseGate
 Worker IO API
 AIO local loop
+node_client testnet bootstrap
+runtime pool registration
+chunk manifest builder
 ```
 
 ## Do not claim until true
 
 ```text
 Do not claim production foundation model until real trained weights exist.
-Do not claim real decentralization until external anchor and independent workers exist.
+Do not claim real decentralization until external anchor, distributed storage, and independent workers exist.
 Do not claim commercial reliability until monitoring, backups, security review, and abuse controls exist.
+Do not claim Ailovanta owns a GPU cloud; the design is verified external nodes contributing compute.
 ```
