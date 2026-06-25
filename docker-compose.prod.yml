@@ -16,15 +16,5 @@ services:
       retries: 3
       start_period: 30s
 
-  backup:
-    build: .
-    command: python scripts/backup_runtime.py --root runtime_data --output runtime_data/backups
-    env_file:
-      - .env.production
-    volumes:
-      - ailovanta_runtime:/app/runtime_data
-    profiles:
-      - ops
-
 volumes:
   ailovanta_runtime:
