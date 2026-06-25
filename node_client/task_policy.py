@@ -11,6 +11,7 @@ ALLOWED_JOB_TYPES = {
     "evaluation_batch",
     "verification",
     "lora_micro",
+    "model_shard",
 }
 
 
