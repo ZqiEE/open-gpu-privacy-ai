@@ -34,6 +34,9 @@ api/artifact_store.py
 api/anchor_adapter.py
 api/prod_config.py
 api/prod_ready.py
+api/wc.py
+api/wio.py
+api/wio_api.py
 ```
 
 Current local adapters:
@@ -41,6 +44,7 @@ Current local adapters:
 ```text
 local artifact file store
 file append-only anchor log
+worker task/result schema helper
 ```
 
 Production replacements later:
@@ -56,6 +60,22 @@ backup and recovery
 rate limits
 security review
 ```
+
+## Worker IO
+
+Create remote worker task:
+
+```text
+POST /wio/task
+```
+
+Submit signed worker result:
+
+```text
+POST /wio/result
+```
+
+See `docs/WIO.md`.
 
 ## Code-ready now
 
@@ -73,6 +93,9 @@ rollback route disable/restore
 owned-chat default active route
 preflight
 prod readiness checker
+artifact store adapter
+anchor adapter
+worker task/result API
 ```
 
 ## Deployment path
@@ -80,7 +103,7 @@ prod readiness checker
 ```text
 1. Run python scripts/aio.py --core-path ../ailovanta-core
 2. Run python scripts/prod_ready.py --result runtime_data/local_loop/foundation_result.json
-3. Replace local demo node with real worker.
+3. Replace local demo node with real worker through /wio/task and /wio/result.
 4. Replace local checkpoint payload with real GPU output.
 5. Replace local artifact store with durable model storage.
 6. Replace file anchor with external anchor adapter.
