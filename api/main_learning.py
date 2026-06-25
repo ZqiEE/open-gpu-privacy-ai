@@ -7,6 +7,7 @@ from api.gg_api import router as gg_router
 from api.learning_api import router as learning_router
 from api.learning_foundation_api import router as learning_foundation_router
 from api.learning_gate_api import router as learning_gate_router
+from api.main_owned_default import ailovanta_owned_chat_default as _owned_chat_default_route
 from api.main_packet import app
 from api.model_monitor_api import router as model_monitor_router
 from api.rflow2_api import router as rflow2_router
