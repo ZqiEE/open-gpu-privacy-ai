@@ -31,6 +31,38 @@ transformers-causal-lm loads a local Transformers model directory
 3. Ollama local runtime fallback
 ```
 
+## Backend ref import rule
+
+Public import prefers:
+
+```text
+artifact.backend_ref
+```
+
+and only falls back to:
+
+```text
+artifact.checkpoint_uri
+```
+
+The selected backend ref is stored in:
+
+```text
+artifact binding backend_ref
+chain event metadata backend_ref
+```
+
+## Rollback sync
+
+Rollback executor updates both:
+
+```text
+runtime model status
+artifact binding status
+```
+
+So a rolled-back candidate is no longer selected by active binding lookup.
+
 ## Important reality
 
 A jsonl-stat checkpoint is not a full conversational model. When the binding points to a lightweight checkpoint, the worker returns checkpoint-bound status and metadata instead of pretending to generate as a large model.
@@ -52,4 +84,4 @@ A real generative path requires a binding whose `backend_kind` is `transformers-
 
 ## Meaning
 
-Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes.
+Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, and rollback removes bad bindings from the active path.
