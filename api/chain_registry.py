@@ -109,5 +109,7 @@ class ChainRegistry:
 
     @staticmethod
     def _api_event(row: dict) -> dict:
-        row["payload"] = json.loads(row.pop("payload_json") or "{}")
+        payload = json.loads(row.pop("payload_json") or "{}")
+        row["payload"] = payload
+        row["metadata"] = payload.get("metadata", {})
         return row
