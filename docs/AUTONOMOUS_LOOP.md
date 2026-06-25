@@ -4,7 +4,7 @@
 
 Autonomous Loop is the one-shot controller for the Ailovanta automatic learning cycle.
 
-It connects event export, core AutoTruth scoring, public training pack import, guarded learning, shadow/live registration, and runtime import rules.
+It connects event export, core AutoTruth scoring, public training pack import, guarded learning, optional local checkpoint execution, shadow/live registration, and runtime import rules.
 
 ## App entrypoint
 
@@ -22,8 +22,19 @@ GET /autonomous/runs
 
 ## One command
 
+Default guarded cycle:
+
 ```bash
 python scripts/run_autonomous_loop.py --core-path ../ailovanta-core
+```
+
+Run with local checkpoint execution:
+
+```bash
+python scripts/run_autonomous_loop.py \
+  --core-path ../ailovanta-core \
+  --execute-checkpoints \
+  --checkpoint-output-root runtime_data/autonomous_checkpoints
 ```
 
 ## Flow
@@ -34,10 +45,26 @@ public learning events
 -> core AutoTruth
 -> import training pack
 -> guarded learning pipeline
+-> optional core local checkpoint execution
 -> eval gate
 -> shadow/live monitor
 -> runtime import only if allowed
 -> run log
+```
+
+## Real execution path
+
+When `execute_checkpoints=true`, public sends execution flags to core:
+
+```text
+/autonomous/run
+-> /learning/gate/run
+-> core scripts/run_foundation_job.py --execute-checkpoints
+-> local checkpoint executor
+-> node adapter
+-> model execution backend
+-> checkpoint receipt
+-> foundation artifact
 ```
 
 ## Protection chain
@@ -55,4 +82,4 @@ rollback executor
 
 ## Meaning
 
-This is the first complete one-command automatic evolution controller. It does not make the model magically perfect, but it makes the learning cycle auditable, gated, and recoverable.
+This is the first complete one-command automatic evolution controller. It does not make the model magically perfect, but it makes the learning cycle auditable, gated, recoverable, and able to execute local checkpoint work when enabled.
