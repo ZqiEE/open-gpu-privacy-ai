@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from api.parcel_receipts import export_receipts
 from api.parcel_store import ParcelStore
 
 router = APIRouter(prefix="/parcels", tags=["parcels"])
@@ -18,6 +19,10 @@ class Batch(BaseModel):
 
 class Item(BaseModel):
     payload: dict[str, Any]
+
+
+class ExportRequest(BaseModel):
+    output_path: str = "runtime_data/parcels/checkpoint_receipts.json"
 
 
 @router.post("/push")
@@ -38,3 +43,8 @@ def submit(body: Item) -> dict:
 @router.get("/submitted")
 def submitted() -> dict:
     return {"items": store.list_outbox()}
+
+
+@router.post("/receipts/export")
+def export_checkpoint_receipts(body: ExportRequest) -> dict:
+    return export_receipts(store=store, output_path=body.output_path)
