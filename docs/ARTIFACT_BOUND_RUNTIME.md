@@ -69,13 +69,15 @@ ref_reason
 runtime_status_update
 ```
 
-A manual check endpoint is also available:
+Manual check endpoint:
 
 ```text
 POST /artifact-bindings/{binding_id}/check
 ```
 
-This protects owned-chat from routing into a binding whose local checkpoint or model directory cannot be found. Runtime routing also refuses unavailable runtime models because the runtime router only routes active manifests.
+The check endpoint rechecks the local ref, updates the binding status, and updates the runtime model status. If a missing file appears later, the status can recover from `unavailable` to `candidate`.
+
+Owned-chat also checks the active artifact binding before it calls the worker. If the active binding points to a missing local file or directory, owned-chat fails fast with `owned-runtime-unavailable` instead of silently falling through to a fallback runtime.
 
 ## Rollback sync
 
@@ -109,4 +111,4 @@ A real generative path requires a binding whose `backend_kind` is `transformers-
 
 ## Meaning
 
-Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import marks unreachable local refs and runtime manifests as unavailable.
+Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import/check mark unreachable local refs and runtime manifests as unavailable.
