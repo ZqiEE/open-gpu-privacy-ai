@@ -46,6 +46,14 @@ def foundation_result_to_core_manifest(payload: dict[str, Any]) -> dict[str, Any
     }
 
 
+def set_runtime_model_status(runtime: RuntimeStore, model_key: str, status: str) -> dict[str, Any]:
+    with runtime.connect() as conn:
+        before = conn.execute("SELECT status FROM runtime_models WHERE model_key = ?", (model_key,)).fetchone()
+        conn.execute("UPDATE runtime_models SET status = ? WHERE model_key = ?", (status, model_key))
+        after = conn.execute("SELECT status FROM runtime_models WHERE model_key = ?", (model_key,)).fetchone()
+    return {"model_key": model_key, "before": before[0] if before else None, "after": after[0] if after else None, "found": after is not None}
+
+
 def import_foundation_result(
     payload: dict[str, Any],
     core_results: CoreResultStore | None = None,
@@ -74,8 +82,11 @@ def import_foundation_result(
         metadata={"core_result_id": core_result["result_id"], "source": "foundation_import", "backend_ref_source": "artifact.backend_ref" if artifact.get("backend_ref") else "artifact.checkpoint_uri"},
     )
     ref_check = check_runtime_ref(binding)
+    runtime_status_update = None
     if not ref_check["ready"]:
         binding = bindings.set_status(binding["binding_id"], "unavailable") or binding
+        runtime_status_update = set_runtime_model_status(runtime, runtime_model["model_key"], "unavailable")
+        runtime_model = runtime.get_model(runtime_model["model_key"]) or runtime_model
     chain_event = chain.append_model_event(
         {
             "event_type": "model_artifact_promoted",
@@ -83,10 +94,10 @@ def import_foundation_result(
             "version": runtime_model["version"],
             "artifact_hash": artifact["artifact_hash"],
             "runtime_manifest_hash": runtime_model["manifest_hash"],
-            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref, "ref_ready": ref_check["ready"], "ref_reason": ref_check["reason"]},
+            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref, "ref_ready": ref_check["ready"], "ref_reason": ref_check["reason"], "runtime_status_update": runtime_status_update},
         }
     )
-    return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "runtime_ref_check": ref_check, "chain_event": chain_event}
+    return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "runtime_ref_check": ref_check, "runtime_status_update": runtime_status_update, "chain_event": chain_event}
 
 
 def import_foundation_result_file(path: str | Path) -> dict[str, Any]:
