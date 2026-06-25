@@ -6,6 +6,7 @@ from time import time
 from typing import Any
 from uuid import uuid4
 
+from api.artifact_binding import ArtifactBindingStore
 from api.model_monitor import ModelMonitorStore
 from api.runtime_store import RuntimeStore
 
@@ -15,10 +16,12 @@ class RollbackExecutor:
         self,
         monitor: ModelMonitorStore | None = None,
         runtime: RuntimeStore | None = None,
+        binding_store: ArtifactBindingStore | None = None,
         log_root: str | Path = "runtime_data/rollback_executor",
     ) -> None:
         self.monitor = monitor or ModelMonitorStore()
         self.runtime = runtime or RuntimeStore()
+        self.bindings = binding_store or ArtifactBindingStore()
         self.log_root = Path(log_root)
         self.log_root.mkdir(parents=True, exist_ok=True)
 
@@ -41,6 +44,8 @@ class RollbackExecutor:
         previous_model = live_record.get("previous_model") if live_record else None
         bad_update = self._set_model_status(bad_model, "rolled_back")
         previous_update = self._set_model_status(previous_model, "active") if previous_model else None
+        bad_binding_update = self._set_latest_binding_status(bad_model, "rolled_back")
+        previous_binding_update = self._set_latest_binding_status(previous_model, "active") if previous_model else None
         payload = {
             "executed": True,
             "rollback_id": "rollback_" + uuid4().hex[:12],
@@ -49,6 +54,8 @@ class RollbackExecutor:
             "previous_model": previous_model,
             "bad_update": bad_update,
             "previous_update": previous_update,
+            "bad_binding_update": bad_binding_update,
+            "previous_binding_update": previous_binding_update,
             "created_at": round(time(), 3),
         }
         return self._log(payload)
@@ -58,6 +65,15 @@ class RollbackExecutor:
         rows = [row for row in rows if row.get("model") == model]
         rows.sort(key=lambda row: row.get("created_at", 0), reverse=True)
         return rows[0] if rows else None
+
+    def _set_latest_binding_status(self, model_key: str | None, status: str) -> dict[str, Any] | None:
+        if not model_key:
+            return None
+        binding = self.bindings.latest_for_model(model_key)
+        if not binding:
+            return {"model_key": model_key, "found": False}
+        updated = self.bindings.set_status(binding["binding_id"], status)
+        return {"model_key": model_key, "binding_id": binding["binding_id"], "before": binding.get("status"), "after": updated.get("status") if updated else None, "found": True}
 
     def _set_model_status(self, model_key: str | None, status: str) -> dict[str, Any] | None:
         if not model_key:
