@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from api.artifact_binding import ArtifactBindingStore
+from api.runtime_ref import check_runtime_ref
 from api.worker_transport import WorkerInferenceClient, WorkerInferenceRequest, WorkerInferenceUnavailable
 
 
@@ -34,9 +36,10 @@ class OwnedModelUnavailable(RuntimeError):
 
 
 class OwnedModelRuntime:
-    def __init__(self, runtime_registry, worker_client: WorkerInferenceClient | None = None) -> None:
+    def __init__(self, runtime_registry, worker_client: WorkerInferenceClient | None = None, binding_store: ArtifactBindingStore | None = None) -> None:
         self.runtime_registry = runtime_registry
         self.worker_client = worker_client or WorkerInferenceClient()
+        self.binding_store = binding_store or ArtifactBindingStore()
 
     def route(self, request: OwnedModelRequest) -> dict:
         from api.runtime_router import RuntimeRequest
@@ -55,7 +58,20 @@ class OwnedModelRuntime:
             )
         )
 
+    def active_binding(self, request: OwnedModelRequest) -> dict | None:
+        return self.binding_store.latest_for_model(f"{request.model_id}:{request.version}", active_only=True)
+
+    def assert_binding_usable(self, request: OwnedModelRequest) -> dict | None:
+        binding = self.active_binding(request)
+        if not binding:
+            return None
+        report = check_runtime_ref(binding)
+        if not report.get("ready"):
+            raise OwnedModelUnavailable("artifact binding is not locally reachable: " + str(report.get("reason")))
+        return binding
+
     def generate(self, request: OwnedModelRequest) -> OwnedModelResult:
+        binding = self.assert_binding_usable(request)
         route = self.route(request)
         if not route.get("assigned"):
             raise OwnedModelUnavailable("no verified Ailovanta runtime manifest is available")
@@ -84,11 +100,12 @@ class OwnedModelRuntime:
         except WorkerInferenceUnavailable as exc:
             raise OwnedModelUnavailable(f"worker inference unavailable: {exc}") from exc
 
+        route_with_binding = {**route, "artifact_binding_id": binding.get("binding_id") if binding else None}
         return OwnedModelResult(
             answer=worker_result.answer,
             source=worker_result.source,
             model_id=request.model_id,
             version=request.version,
-            runtime_route=route,
+            runtime_route=route_with_binding,
             policy_mode=request.policy_mode,
         )
