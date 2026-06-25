@@ -20,7 +20,8 @@ def metric_score_from_result(result: dict[str, Any]) -> float:
     accepted = float(metrics.get("accepted_checkpoints", 0.0) or 0.0)
     loss_score = max(0.0, min(1.0, 1.0 / (1.0 + max(0.0, eval_loss))))
     checkpoint_bonus = 0.1 if accepted > 0 else 0.0
-    return round(min(1.0, loss_score + checkpoint_bonus), 4)
+    local_bonus = 0.05 if metrics.get("execution_mode") == "local" else 0.0
+    return round(min(1.0, loss_score + checkpoint_bonus + local_bonus), 4)
 
 
 def build_eval_payload(
@@ -33,12 +34,14 @@ def build_eval_payload(
     version = artifact.get("version", "candidate")
     candidate_model = f"{model_id}:{version}"
     candidate_score = metric_score_from_result(foundation_result)
+    metrics = artifact.get("metrics") or {}
     return {
         "candidate_model": candidate_model,
         "baseline_model": baseline_model,
         "metrics": [
             {"name": "autotruth_quality", "candidate_score": candidate_score, "baseline_score": baseline_score, "weight": 1.0},
             {"name": "artifact_integrity", "candidate_score": 1.0 if artifact.get("artifact_hash") else 0.0, "baseline_score": 0.9, "weight": 1.0},
+            {"name": "checkpoint_execution", "candidate_score": 1.0 if metrics.get("execution_mode") == "local" else 0.6, "baseline_score": 0.6, "weight": 0.5},
         ],
         "regression_rate": 0.0 if candidate_score >= baseline_score else 0.1,
         "safety_fail_rate": 0.0,
@@ -53,12 +56,33 @@ def run_core_eval_gate(core_root: Path, eval_payload: dict[str, Any], work_dir: 
     return json.loads(proc.stdout)
 
 
+def build_foundation_command(
+    core_root: Path,
+    export_path: Path,
+    result_path: Path,
+    execute_checkpoints: bool = False,
+    checkpoint_output_root: str | Path | None = None,
+    training_command: str | None = None,
+) -> list[str]:
+    command = [sys.executable, str(core_root / "scripts" / "run_foundation_job.py"), str(export_path), "--output", str(result_path)]
+    if execute_checkpoints:
+        command.append("--execute-checkpoints")
+    if checkpoint_output_root:
+        command.extend(["--checkpoint-output-root", str(checkpoint_output_root)])
+    if training_command:
+        command.extend(["--training-command", training_command])
+    return command
+
+
 def run_guarded_learning_pipeline(
     core_path: str | Path | None = None,
     work_dir: str | Path = "runtime_data/guarded_learning_pipeline",
     baseline_model: str = "ailovanta-owned:baseline",
     baseline_score: float = 0.45,
     allow_shadow_import: bool = False,
+    execute_checkpoints: bool = False,
+    checkpoint_output_root: str | Path | None = None,
+    training_command: str | None = None,
     **job_kwargs: Any,
 ) -> dict[str, Any]:
     core_root = Path(core_path or os.getenv("AILOVANTA_CORE_PATH", "../ailovanta-core")).resolve()
@@ -77,9 +101,17 @@ def run_guarded_learning_pipeline(
     exported = export_foundation_job(job_id, exports_dir)
     export_path = Path(exported["export_path"]).resolve()
     result_path = (results_dir / f"{job_id}_foundation_result.json").resolve()
+    checkpoint_root = checkpoint_output_root or (output_root / "checkpoints")
 
     subprocess.run(
-        [sys.executable, str(core_root / "scripts" / "run_foundation_job.py"), str(export_path), "--output", str(result_path)],
+        build_foundation_command(
+            core_root,
+            export_path,
+            result_path,
+            execute_checkpoints=execute_checkpoints,
+            checkpoint_output_root=checkpoint_root if execute_checkpoints else None,
+            training_command=training_command,
+        ),
         cwd=core_root,
         check=True,
     )
@@ -97,13 +129,13 @@ def run_guarded_learning_pipeline(
             candidate_model=eval_payload["candidate_model"],
             baseline_model=baseline_model,
             artifact_hash=artifact.get("artifact_hash"),
-            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path)},
+            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path), "execute_checkpoints": execute_checkpoints},
         )
         monitor.record_metric(
             eval_payload["candidate_model"],
             {item["name"]: float(item["candidate_score"]) for item in eval_payload["metrics"]},
             mode="shadow",
-            metadata={"shadow_id": shadow["shadow_id"], "job_id": job_id},
+            metadata={"shadow_id": shadow["shadow_id"], "job_id": job_id, "execute_checkpoints": execute_checkpoints},
         )
 
     imported = None
@@ -120,6 +152,8 @@ def run_guarded_learning_pipeline(
         "job": job,
         "export_path": str(export_path),
         "result_path": str(result_path),
+        "execute_checkpoints": execute_checkpoints,
+        "checkpoint_output_root": str(checkpoint_root) if execute_checkpoints else None,
         "eval_payload": eval_payload,
         "gate": gate_result,
         "shadow": shadow,
