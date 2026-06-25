@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import sqlite3
 from pathlib import Path
 from time import time
@@ -14,9 +15,13 @@ def hash_secret(secret: str) -> str:
     return "sha256:" + hashlib.sha256(secret.encode("utf-8")).hexdigest()
 
 
+def default_path() -> str:
+    return os.getenv("AILOVANTA_NODE_TRUST_PATH", "runtime_data/node_trust.sqlite3")
+
+
 class NodeTrustStore:
-    def __init__(self, path: str | Path = "runtime_data/node_trust.sqlite3") -> None:
-        self.path = Path(path)
+    def __init__(self, path: str | Path | None = None) -> None:
+        self.path = Path(path or default_path())
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
