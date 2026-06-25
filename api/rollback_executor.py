@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from api.artifact_binding import ArtifactBindingStore
 from api.model_monitor import ModelMonitorStore
+from api.route_book import RouteBook
 from api.runtime_store import RuntimeStore
 
 
@@ -17,11 +18,13 @@ class RollbackExecutor:
         monitor: ModelMonitorStore | None = None,
         runtime: RuntimeStore | None = None,
         binding_store: ArtifactBindingStore | None = None,
+        route_book: RouteBook | None = None,
         log_root: str | Path = "runtime_data/rollback_executor",
     ) -> None:
         self.monitor = monitor or ModelMonitorStore()
         self.runtime = runtime or RuntimeStore()
         self.bindings = binding_store or ArtifactBindingStore()
+        self.routes = route_book or RouteBook()
         self.log_root = Path(log_root)
         self.log_root.mkdir(parents=True, exist_ok=True)
 
@@ -46,6 +49,7 @@ class RollbackExecutor:
         previous_update = self._set_model_status(previous_model, "active") if previous_model else None
         bad_binding_update = self._set_latest_binding_status(bad_model, "rolled_back")
         previous_binding_update = self._set_latest_binding_status(previous_model, "active") if previous_model else None
+        route_update = self._rollback_routes(bad_model, previous_model)
         payload = {
             "executed": True,
             "rollback_id": "rollback_" + uuid4().hex[:12],
@@ -56,9 +60,21 @@ class RollbackExecutor:
             "previous_update": previous_update,
             "bad_binding_update": bad_binding_update,
             "previous_binding_update": previous_binding_update,
+            "route_update": route_update,
             "created_at": round(time(), 3),
         }
         return self._log(payload)
+
+    def _rollback_routes(self, bad_model: str, previous_model: str | None) -> dict[str, Any]:
+        updates = []
+        for route in self.routes.list_routes():
+            if route.get("status") == "active" and route.get("model_key") == bad_model:
+                disabled = self.routes.disable(route["route_key"], reason="rollback:" + bad_model)
+                updates.append({"route_key": route["route_key"], "action": "disabled", "route": disabled})
+                if previous_model:
+                    active = self.routes.set_active(route["route_key"], previous_model, reason="rollback_to_previous")
+                    updates.append({"route_key": route["route_key"], "action": "restored_previous", "route": active})
+        return {"count": len(updates), "updates": updates}
 
     def _find_live_by_model(self, model: str) -> dict[str, Any] | None:
         rows = self.monitor.list_live()
