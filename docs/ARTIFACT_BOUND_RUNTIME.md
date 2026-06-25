@@ -52,6 +52,30 @@ artifact binding backend_ref
 chain event metadata backend_ref
 ```
 
+## Runtime ref readiness
+
+On foundation result import, public checks whether the selected backend ref is locally reachable.
+
+```text
+ready -> binding remains active/candidate
+not ready -> binding status becomes unavailable
+```
+
+The chain event metadata records:
+
+```text
+ref_ready
+ref_reason
+```
+
+A manual check endpoint is also available:
+
+```text
+POST /artifact-bindings/{binding_id}/check
+```
+
+This protects owned-chat from routing into a binding whose local checkpoint or model directory cannot be found.
+
 ## Rollback sync
 
 Rollback executor updates both:
@@ -84,4 +108,4 @@ A real generative path requires a binding whose `backend_kind` is `transformers-
 
 ## Meaning
 
-Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, and rollback removes bad bindings from the active path.
+Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import marks unreachable local refs as unavailable.
