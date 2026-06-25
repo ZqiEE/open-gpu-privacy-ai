@@ -74,6 +74,30 @@ def build_foundation_command(
     return command
 
 
+def build_backend_env(
+    model_backend: str | None = None,
+    base_model: str | None = None,
+    backend_output_dir: str | Path | None = None,
+    backend_device: str | None = None,
+    backend_max_steps: int | None = None,
+    backend_lr: float | None = None,
+) -> dict[str, str]:
+    env: dict[str, str] = {}
+    if model_backend:
+        env["AILOVANTA_MODEL_BACKEND"] = model_backend
+    if base_model:
+        env["AILOVANTA_BASE_MODEL"] = base_model
+    if backend_output_dir:
+        env["AILOVANTA_BACKEND_OUTPUT_DIR"] = str(backend_output_dir)
+    if backend_device:
+        env["AILOVANTA_BACKEND_DEVICE"] = backend_device
+    if backend_max_steps is not None:
+        env["AILOVANTA_BACKEND_MAX_STEPS"] = str(backend_max_steps)
+    if backend_lr is not None:
+        env["AILOVANTA_BACKEND_LR"] = str(backend_lr)
+    return env
+
+
 def run_guarded_learning_pipeline(
     core_path: str | Path | None = None,
     work_dir: str | Path = "runtime_data/guarded_learning_pipeline",
@@ -83,6 +107,12 @@ def run_guarded_learning_pipeline(
     execute_checkpoints: bool = False,
     checkpoint_output_root: str | Path | None = None,
     training_command: str | None = None,
+    model_backend: str | None = None,
+    base_model: str | None = None,
+    backend_output_dir: str | Path | None = None,
+    backend_device: str | None = None,
+    backend_max_steps: int | None = None,
+    backend_lr: float | None = None,
     **job_kwargs: Any,
 ) -> dict[str, Any]:
     core_root = Path(core_path or os.getenv("AILOVANTA_CORE_PATH", "../ailovanta-core")).resolve()
@@ -102,6 +132,16 @@ def run_guarded_learning_pipeline(
     export_path = Path(exported["export_path"]).resolve()
     result_path = (results_dir / f"{job_id}_foundation_result.json").resolve()
     checkpoint_root = checkpoint_output_root or (output_root / "checkpoints")
+    backend_env = build_backend_env(
+        model_backend=model_backend,
+        base_model=base_model,
+        backend_output_dir=backend_output_dir or (output_root / "model_backend"),
+        backend_device=backend_device,
+        backend_max_steps=backend_max_steps,
+        backend_lr=backend_lr,
+    )
+    proc_env = os.environ.copy()
+    proc_env.update(backend_env)
 
     subprocess.run(
         build_foundation_command(
@@ -113,6 +153,7 @@ def run_guarded_learning_pipeline(
             training_command=training_command,
         ),
         cwd=core_root,
+        env=proc_env,
         check=True,
     )
 
@@ -129,13 +170,13 @@ def run_guarded_learning_pipeline(
             candidate_model=eval_payload["candidate_model"],
             baseline_model=baseline_model,
             artifact_hash=artifact.get("artifact_hash"),
-            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path), "execute_checkpoints": execute_checkpoints},
+            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path), "execute_checkpoints": execute_checkpoints, "backend_env": backend_env},
         )
         monitor.record_metric(
             eval_payload["candidate_model"],
             {item["name"]: float(item["candidate_score"]) for item in eval_payload["metrics"]},
             mode="shadow",
-            metadata={"shadow_id": shadow["shadow_id"], "job_id": job_id, "execute_checkpoints": execute_checkpoints},
+            metadata={"shadow_id": shadow["shadow_id"], "job_id": job_id, "execute_checkpoints": execute_checkpoints, "backend_env": backend_env},
         )
 
     imported = None
@@ -154,6 +195,7 @@ def run_guarded_learning_pipeline(
         "result_path": str(result_path),
         "execute_checkpoints": execute_checkpoints,
         "checkpoint_output_root": str(checkpoint_root) if execute_checkpoints else None,
+        "backend_env": backend_env,
         "eval_payload": eval_payload,
         "gate": gate_result,
         "shadow": shadow,
