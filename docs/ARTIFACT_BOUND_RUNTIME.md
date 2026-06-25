@@ -69,11 +69,13 @@ ref_reason
 runtime_status_update
 ```
 
-A manual check endpoint is also available:
+Manual refresh endpoint:
 
 ```text
-POST /artifact-bindings/{binding_id}/check
+POST /refs/{binding_id}/refresh
 ```
+
+It re-checks the local ref, updates the binding status, and updates the runtime model status using the same rule. If a previously missing local path appears later, the binding can move from `unavailable` to `candidate` and the runtime model can move from `unavailable` to `candidate`.
 
 This protects owned-chat from routing into a binding whose local checkpoint or model directory cannot be found. Runtime routing also refuses unavailable runtime models because the runtime router only routes active manifests.
 
@@ -109,4 +111,4 @@ A real generative path requires a binding whose `backend_kind` is `transformers-
 
 ## Meaning
 
-Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import marks unreachable local refs and runtime manifests as unavailable.
+Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import/refresh mark unreachable local refs and runtime manifests as unavailable.

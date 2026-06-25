@@ -8,6 +8,7 @@ from api.artifact_binding import ArtifactBindingStore
 from api.chain_registry import ChainRegistry
 from api.core_result_store import CoreResultStore
 from api.runtime_ref import check_runtime_ref
+from api.runtime_status_sync import sync_model_with_ref_check
 from api.runtime_store import RuntimeStore
 
 
@@ -46,14 +47,6 @@ def foundation_result_to_core_manifest(payload: dict[str, Any]) -> dict[str, Any
     }
 
 
-def set_runtime_model_status(runtime: RuntimeStore, model_key: str, status: str) -> dict[str, Any]:
-    with runtime.connect() as conn:
-        before = conn.execute("SELECT status FROM runtime_models WHERE model_key = ?", (model_key,)).fetchone()
-        conn.execute("UPDATE runtime_models SET status = ? WHERE model_key = ?", (status, model_key))
-        after = conn.execute("SELECT status FROM runtime_models WHERE model_key = ?", (model_key,)).fetchone()
-    return {"model_key": model_key, "before": before[0] if before else None, "after": after[0] if after else None, "found": after is not None}
-
-
 def import_foundation_result(
     payload: dict[str, Any],
     core_results: CoreResultStore | None = None,
@@ -82,11 +75,10 @@ def import_foundation_result(
         metadata={"core_result_id": core_result["result_id"], "source": "foundation_import", "backend_ref_source": "artifact.backend_ref" if artifact.get("backend_ref") else "artifact.checkpoint_uri"},
     )
     ref_check = check_runtime_ref(binding)
-    runtime_status_update = None
     if not ref_check["ready"]:
         binding = bindings.set_status(binding["binding_id"], "unavailable") or binding
-        runtime_status_update = set_runtime_model_status(runtime, runtime_model["model_key"], "unavailable")
-        runtime_model = runtime.get_model(runtime_model["model_key"]) or runtime_model
+    runtime_status_update = sync_model_with_ref_check(runtime, runtime_model["model_key"], bool(ref_check["ready"]))
+    runtime_model = runtime.get_model(runtime_model["model_key"]) or runtime_model
     chain_event = chain.append_model_event(
         {
             "event_type": "model_artifact_promoted",
