@@ -19,6 +19,12 @@ class RunRequest(BaseModel):
     execute_checkpoints: bool = False
     checkpoint_output_root: str | None = None
     training_command: str | None = None
+    model_backend: str | None = None
+    base_model: str | None = None
+    backend_output_dir: str | None = None
+    backend_device: str | None = None
+    backend_max_steps: int | None = None
+    backend_lr: float | None = None
     max_steps: int = 100
     model_id: str = "ailovanta-owned"
     target_version: str = "candidate"
@@ -35,6 +41,12 @@ def run_once(body: RunRequest) -> dict[str, Any]:
             execute_checkpoints=body.execute_checkpoints,
             checkpoint_output_root=body.checkpoint_output_root,
             training_command=body.training_command,
+            model_backend=body.model_backend,
+            base_model=body.base_model,
+            backend_output_dir=body.backend_output_dir,
+            backend_device=body.backend_device,
+            backend_max_steps=body.backend_max_steps,
+            backend_lr=body.backend_lr,
             max_steps=body.max_steps,
             model_id=body.model_id,
             target_version=body.target_version,
