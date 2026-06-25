@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 
 @dataclass
@@ -34,3 +35,12 @@ class VerificationEngine:
             score += 0.10
         score = min(round(score, 3), 1.0)
         return VerificationResult(score=score, passed=score >= 0.7, reason="heuristic verification")
+
+    def verify(self, result: dict[str, Any]) -> dict[str, Any]:
+        checked = self.score_result(
+            str(result.get("job_id") or result.get("id") or ""),
+            str(result.get("node_id") or ""),
+            str(result.get("status") or "failed"),
+            str(result.get("output_summary") or result.get("summary") or ""),
+        )
+        return asdict(checked)
