@@ -11,6 +11,8 @@ from api.foundation_job_export import export_foundation_job
 from api.foundation_result_import import import_foundation_result_file
 from api.learning_foundation import create_job_from_latest_pack
 from api.model_monitor import ModelMonitorStore
+from api.model_warm import ModelWarm, WarmSpec
+from api.owned_doctor import OwnedDoctor
 
 
 def metric_score_from_result(result: dict[str, Any]) -> float:
@@ -98,6 +100,16 @@ def build_backend_env(
     return env
 
 
+def prepare_runtime_after_import(model_key: str, enabled: bool = True, runtime_id: str = "rt-owned-1", node_id: str = "node-owned-1", gpu_memory_gb: float = 24.0) -> dict[str, Any]:
+    before = OwnedDoctor().check(model_key)
+    action = None
+    after = before
+    if enabled:
+        action = ModelWarm().run(WarmSpec(model_key=model_key, runtime_id=runtime_id, node_id=node_id, gpu_memory_gb=gpu_memory_gb))
+        after = OwnedDoctor().check(model_key)
+    return {"enabled": enabled, "before": before, "action": action, "after": after}
+
+
 def run_guarded_learning_pipeline(
     core_path: str | Path | None = None,
     work_dir: str | Path = "runtime_data/guarded_learning_pipeline",
@@ -113,6 +125,10 @@ def run_guarded_learning_pipeline(
     backend_device: str | None = None,
     backend_max_steps: int | None = None,
     backend_lr: float | None = None,
+    prepare_runtime: bool = True,
+    runtime_id: str = "rt-owned-1",
+    node_id: str = "node-owned-1",
+    runtime_gpu_memory_gb: float = 24.0,
     **job_kwargs: Any,
 ) -> dict[str, Any]:
     core_root = Path(core_path or os.getenv("AILOVANTA_CORE_PATH", "../ailovanta-core")).resolve()
@@ -188,6 +204,9 @@ def run_guarded_learning_pipeline(
     elif decision == "shadow" and allow_shadow_import:
         imported = import_foundation_result_file(result_path)
 
+    model_key = eval_payload["candidate_model"]
+    runtime_prepare = prepare_runtime_after_import(model_key, enabled=bool(imported) and prepare_runtime, runtime_id=runtime_id, node_id=node_id, gpu_memory_gb=runtime_gpu_memory_gb)
+
     return {
         "ok": True,
         "job": job,
@@ -202,4 +221,5 @@ def run_guarded_learning_pipeline(
         "live": live,
         "imported": imported,
         "runtime_updated": imported is not None,
+        "runtime_prepare": runtime_prepare,
     }
