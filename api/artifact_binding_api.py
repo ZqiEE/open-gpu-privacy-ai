@@ -22,17 +22,17 @@ def list_bindings(limit: int = 100) -> dict:
     return {"items": store.list_bindings(limit=limit)}
 
 
+@router.get("/by-model/{model_key:path}")
+def latest_for_model(model_key: str) -> dict:
+    return {"binding": store.latest_for_model(model_key)}
+
+
 @router.get("/{binding_id}")
 def get_binding(binding_id: str) -> dict:
     item = store.get(binding_id)
     if not item:
         raise HTTPException(status_code=404, detail="binding not found")
     return {"binding": item}
-
-
-@router.get("/by-model/{model_key:path}")
-def latest_for_model(model_key: str) -> dict:
-    return {"binding": store.latest_for_model(model_key)}
 
 
 @router.post("/{binding_id}/status")
