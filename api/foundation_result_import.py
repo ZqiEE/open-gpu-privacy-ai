@@ -7,6 +7,7 @@ from typing import Any
 from api.artifact_binding import ArtifactBindingStore
 from api.chain_registry import ChainRegistry
 from api.core_result_store import CoreResultStore
+from api.runtime_ref import check_runtime_ref
 from api.runtime_store import RuntimeStore
 
 
@@ -63,14 +64,18 @@ def import_foundation_result(
     runtime_model = runtime_result["runtime_model"]
     artifact = manifest["artifact"]
     backend_ref = artifact.get("backend_ref") or artifact.get("checkpoint_uri", "")
+    initial_status = "active" if runtime_model.get("status") == "active" else "candidate"
     binding = bindings.register_binding(
         runtime_model,
         artifact,
         backend_kind=artifact.get("backend_kind", "checkpoint-artifact"),
         backend_ref=backend_ref,
-        status="active" if runtime_model.get("status") == "active" else "candidate",
+        status=initial_status,
         metadata={"core_result_id": core_result["result_id"], "source": "foundation_import", "backend_ref_source": "artifact.backend_ref" if artifact.get("backend_ref") else "artifact.checkpoint_uri"},
     )
+    ref_check = check_runtime_ref(binding)
+    if not ref_check["ready"]:
+        binding = bindings.set_status(binding["binding_id"], "unavailable") or binding
     chain_event = chain.append_model_event(
         {
             "event_type": "model_artifact_promoted",
@@ -78,10 +83,10 @@ def import_foundation_result(
             "version": runtime_model["version"],
             "artifact_hash": artifact["artifact_hash"],
             "runtime_manifest_hash": runtime_model["manifest_hash"],
-            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref},
+            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref, "ref_ready": ref_check["ready"], "ref_reason": ref_check["reason"]},
         }
     )
-    return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "chain_event": chain_event}
+    return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "runtime_ref_check": ref_check, "chain_event": chain_event}
 
 
 def import_foundation_result_file(path: str | Path) -> dict[str, Any]:
