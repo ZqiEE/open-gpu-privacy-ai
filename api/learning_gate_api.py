@@ -16,6 +16,9 @@ class GuardedLearningRequest(BaseModel):
     baseline_model: str = "ailovanta-owned:baseline"
     baseline_score: float = 0.45
     allow_shadow_import: bool = False
+    execute_checkpoints: bool = False
+    checkpoint_output_root: str | None = None
+    training_command: str | None = None
     model_id: str = "ailovanta-owned"
     target_version: str = "candidate"
     node_id: str = "learning_node_1"
@@ -32,6 +35,9 @@ def run_guarded_learning(body: GuardedLearningRequest) -> dict[str, Any]:
             baseline_model=body.baseline_model,
             baseline_score=body.baseline_score,
             allow_shadow_import=body.allow_shadow_import,
+            execute_checkpoints=body.execute_checkpoints,
+            checkpoint_output_root=body.checkpoint_output_root,
+            training_command=body.training_command,
             model_id=body.model_id,
             target_version=body.target_version,
             node_id=body.node_id,
