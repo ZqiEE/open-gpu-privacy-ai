@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import json
 
-
-GPU_JOB_TYPES = {"lora_micro", "image_generation", "gpu_inference"}
-HEAVY_JOB_TYPES = {"lora_micro", "rag_import", "evaluation_batch"}
+GPU_JOB_TYPES = {"lora_micro", "image_generation", "gpu_inference", "model_shard"}
+HEAVY_JOB_TYPES = {"lora_micro", "rag_import", "evaluation_batch", "model_shard"}
 
 
 class TaskRouter:
@@ -13,6 +12,8 @@ class TaskRouter:
         if "priority" in payload:
             return int(payload["priority"])
         job_type = job.get("job_type") or job.get("type")
+        if job_type == "model_shard":
+            return 120
         if job_type in GPU_JOB_TYPES:
             return 80
         if job_type in HEAVY_JOB_TYPES:
