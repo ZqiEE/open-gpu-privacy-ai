@@ -52,6 +52,9 @@ def main() -> int:
         if proc.returncode != 0:
             return proc.returncode
 
+    index_proc = subprocess.run([sys.executable, "scripts/didx.py", "--scan", "--plan-id", plan_id, "--award"], check=False)
+    if index_proc.returncode != 0:
+        return index_proc.returncode
     build = subprocess.run([sys.executable, "scripts/mck.py", "--plan-id", plan_id, "--model-id", args.model_id, "--version", args.version], check=False)
     print(json.dumps({"plan_id": plan_id, "build_returncode": build.returncode}, ensure_ascii=False, indent=2))
     return build.returncode
