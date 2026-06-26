@@ -3,6 +3,7 @@ from __future__ import annotations
 from api.apply_api import router as apply_router
 from api.artifact_binding_api import router as artifact_binding_router
 from api.autonomous_api import router as autonomous_router
+from api.cr_api import router as checkpoint_runtime_router
 from api.gg_api import router as gg_router
 from api.learning_api import router as learning_router
 from api.learning_foundation_api import router as learning_foundation_router
@@ -35,3 +36,4 @@ app.include_router(route_health_router)
 app.include_router(wio_router)
 app.include_router(node_admission_router)
 app.include_router(distributed_model_router)
+app.include_router(checkpoint_runtime_router)
