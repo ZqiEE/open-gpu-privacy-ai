@@ -57,6 +57,7 @@ def scan(db_path: str | Path = "runtime_data/scheduler.sqlite3") -> list[dict[st
                 "model_id": item.get("model_id"),
                 "version": item.get("version"),
                 "stage": item.get("stage"),
+                "token_count": item.get("token_count"),
                 "delta_ref": item.get("delta_ref"),
                 "delta_hash": expected,
                 "actual_hash": actual,
