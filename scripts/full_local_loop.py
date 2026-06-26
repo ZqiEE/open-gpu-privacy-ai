@@ -43,14 +43,14 @@ def main() -> int:
     plan_id = plan_data["plan"]["plan_id"]
     print(json.dumps({"created_plan": plan_id, "job_count": plan_data.get("job_count")}, ensure_ascii=False, indent=2))
 
-    for _ in range(args.node_runs):
+    for index in range(args.node_runs):
         proc = subprocess.run(
-            [sys.executable, "-m", "node_client.client_real", "--api-url", args.api_url, "--max-runtime-seconds", str(args.max_runtime_seconds), "--poll-seconds", "1", "--max-payload-bytes", "65536"],
-            timeout=max(args.max_runtime_seconds + 30, 60),
+            [sys.executable, "-m", "node_client.once_real", "--api-url", args.api_url, "--max-runtime-seconds", str(args.max_runtime_seconds), "--max-payload-bytes", "65536", "--allow-on-battery"],
             check=False,
         )
-        if proc.returncode not in {0, 130}:
-            print("node run exited", proc.returncode)
+        print(json.dumps({"one_shot_node_run": index + 1, "returncode": proc.returncode}, ensure_ascii=False))
+        if proc.returncode != 0:
+            return proc.returncode
 
     build = subprocess.run([sys.executable, "scripts/mck.py", "--plan-id", plan_id, "--model-id", args.model_id, "--version", args.version], check=False)
     print(json.dumps({"plan_id": plan_id, "build_returncode": build.returncode}, ensure_ascii=False, indent=2))
