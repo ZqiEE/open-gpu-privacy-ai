@@ -1,0 +1,12 @@
+{
+  "schema_version": "ailovanta.github_code_sources.v1",
+  "sources": [
+    {
+      "name": "ailovanta",
+      "url": "https://github.com/ZqiEE/ailovanta.git",
+      "branch": "main",
+      "license_policy": "owner_controlled",
+      "enabled": true
+    }
+  ]
+}
