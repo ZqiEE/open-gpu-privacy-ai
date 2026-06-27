@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ailovanta Secure Admin</title>
+  <style>
+    body{margin:0;background:#0b0f17;color:#e5e7eb;font-family:Arial,sans-serif}header{padding:18px 24px;background:#111827;border-bottom:1px solid #1f2937}main{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}section{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:14px}button{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 10px;margin:4px;cursor:pointer}input{width:calc(100% - 18px);padding:8px;background:#030712;color:#fff;border:1px solid #374151;border-radius:8px;margin:4px}pre{background:#030712;padding:10px;border-radius:10px;white-space:pre-wrap;max-height:300px;overflow:auto}.bar{display:flex;gap:8px;align-items:center}.small{font-size:12px;color:#9ca3af}
+  </style>
+</head>
+<body>
+<header><h1>Ailovanta Secure Admin</h1><div class="bar"><input id="adminKey" placeholder="AILOVANTA_ADMIN_TOKEN" /><button onclick="saveKey()">Save Key</button><button onclick="clearKey()">Clear</button></div><div class="small">The key is stored in this browser only and sent as X-Ailovanta-Admin-Token.</div></header>
+<main>
+<section><h2>Ops</h2><button onclick="get('/ops/metrics','ops')">Metrics</button><button onclick="get('/ops/healthz','ops')">Health</button><button onclick="post('/ops/migrations/run',{},'ops')">Run Migrations</button><pre id="ops"></pre></section>
+<section><h2>Queue</h2><button onclick="get('/ops/queue','queue')">Queue</button><button onclick="get('/ops/scheduler/preview','queue')">Preview</button><button onclick="post('/ops/scheduler/reprioritize',{},'queue')">Reprioritize</button><pre id="queue"></pre></section>
+<section><h2>Node Keys</h2><input id="nodeId" value="node-001" /><button onclick="post('/node-keys/issue',{node_id:v('nodeId')},'nodes')">Issue</button><button onclick="post('/node-keys/'+v('nodeId')+'/rotate',{},'nodes')">Rotate</button><button onclick="post('/node-keys/'+v('nodeId')+'/revoke',{},'nodes')">Revoke</button><button onclick="get('/node-keys','nodes')">List</button><pre id="nodes"></pre></section>
+<section><h2>Artifacts</h2><input id="artifactName" value="ailovanta-code" /><button onclick="get('/ops/artifacts/versions','art')">Versions</button><button onclick="get('/ops/artifacts/active/'+v('artifactName'),'art')">Active</button><pre id="art"></pre></section>
+<section><h2>Runtime</h2><button onclick="get('/catalog/items','rt')">Catalog</button><button onclick="get('/runtime/status','rt')">Runtime</button><button onclick="get('/runtime/nodes','rt')">Runtime Nodes</button><pre id="rt"></pre></section>
+<section><h2>Events</h2><button onclick="get('/ops/events?limit=50','ev')">Events</button><button onclick="post('/ops/events',{level:'info',source:'admin',message:'admin ping',metadata:{}},'ev')">Write Event</button><pre id="ev"></pre></section>
+</main>
+<script>
+function v(id){return document.getElementById(id).value}function key(){return localStorage.getItem('ailovanta_admin_key')||''}function saveKey(){localStorage.setItem('ailovanta_admin_key',v('adminKey'));alert('saved')}function clearKey(){localStorage.removeItem('ailovanta_admin_key');document.getElementById('adminKey').value=''}function hdr(){const h={'Content-Type':'application/json'};if(key())h['X-Ailovanta-Admin-Token']=key();return h}async function get(p,o){const r=await fetch(p,{headers:hdr()});document.getElementById(o).textContent=JSON.stringify(await r.json(),null,2)}async function post(p,b,o){const r=await fetch(p,{method:'POST',headers:hdr(),body:JSON.stringify(b)});document.getElementById(o).textContent=JSON.stringify(await r.json(),null,2)}document.getElementById('adminKey').value=key();
+</script>
+</body>
+</html>
