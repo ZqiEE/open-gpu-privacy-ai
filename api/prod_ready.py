@@ -24,7 +24,7 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
     if cfg.model_backend == "local" and cfg.env != "local":
         blockers.append("model_backend_local_in_production")
 
-    route = RouteHealth().check(route_key)
+    route = RouteHealth().check(route_key, verify_artifact=verify_bytes)
     if not route.get("ok"):
         blockers.extend("route:" + str(item) for item in route.get("blockers", []))
 
