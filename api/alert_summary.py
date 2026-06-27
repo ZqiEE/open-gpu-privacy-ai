@@ -7,10 +7,11 @@ from api.prod_ready_plus import check_abuse_controls, check_production_ready_plu
 from api.route_health import RouteHealth
 from api.runtime_readiness import RuntimeReadiness
 from api.runtime_store import RuntimeStore
+from api.security_review import run_security_review
 
 
 def severity_for(blocker: str) -> str:
-    if blocker.startswith(("backup:", "runtime_route:", "route:", "artifact_store_error", "anchor_adapter_error")):
+    if blocker.startswith(("backup:", "runtime_route:", "route:", "artifact_store_error", "anchor_adapter_error", "review:")):
         return "critical"
     if blocker.startswith(("abuse:", "readiness:", "missing_")):
         return "high"
@@ -42,6 +43,9 @@ class AlertSummary:
         abuse = check_abuse_controls()
         for blocker in abuse.get("blockers", []):
             alerts.append(make_alert("abuse_controls", str(blocker)))
+        review = run_security_review()
+        for blocker in review.get("blockers", []):
+            alerts.append(make_alert("release_review", "review:" + str(blocker)))
         rt = self.runtime.status()
         if int(rt.get("runtimes", 0)) <= 0:
             alerts.append(make_alert("runtime", "no_runtime_nodes"))
@@ -51,4 +55,4 @@ class AlertSummary:
         for alert in alerts:
             levels[alert["severity"]] = levels.get(alert["severity"], 0) + 1
         ok = not any(alert["severity"] in {"critical", "high"} for alert in alerts)
-        return {"ok": ok, "route_key": route_key, "verify_bytes": verify_bytes, "levels": levels, "alerts": alerts, "prod_ready_plus": prod, "route_health": route, "runtime_route": runtime_route, "backup": backup, "runtime": rt, "abuse_controls": abuse}
+        return {"ok": ok, "route_key": route_key, "verify_bytes": verify_bytes, "levels": levels, "alerts": alerts, "prod_ready_plus": prod, "route_health": route, "runtime_route": runtime_route, "backup": backup, "runtime": rt, "abuse_controls": abuse, "release_review": review}
