@@ -1,20 +1,68 @@
 services:
-  api:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ailovanta
+      POSTGRES_USER: ailovanta
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  ailovanta-api:
     build: .
-    command: uvicorn api.main_learning:app --host 0.0.0.0 --port 8000
-    env_file:
-      - .env.production
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://ailovanta:${POSTGRES_PASSWORD:-change-me}@postgres:5432/ailovanta
+      REDIS_URL: redis://redis:6379/0
+      AILOVANTA_ADMIN_TOKEN: ${AILOVANTA_ADMIN_TOKEN:-change-me-admin}
+      AILOVANTA_NODE_TOKEN: ${AILOVANTA_NODE_TOKEN:-}
+      AILOVANTA_METRICS: "1"
     volumes:
-      - ailovanta_runtime:/app/runtime_data
+      - ./runtime_data:/app/runtime_data
+
+  ailovanta-runtime:
+    build: .
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs').read()"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    command: ["uvicorn", "api.runtime_server:app", "--host", "0.0.0.0", "--port", "9001"]
+    ports:
+      - "9001:9001"
+    environment:
+      AILOVANTA_RUNTIME_KEY: ${AILOVANTA_RUNTIME_KEY:-change-me-runtime}
+    volumes:
+      - ./runtime_data:/app/runtime_data
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana:/var/lib/grafana/dashboards:ro
 
 volumes:
-  ailovanta_runtime:
+  postgres_data:
+  redis_data:
+  grafana_data:
