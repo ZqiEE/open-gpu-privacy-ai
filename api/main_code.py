@@ -15,11 +15,13 @@ from api.monitoring_routes import router as monitoring_router
 from api.node_key_routes import router as node_key_router
 from api.object_store_routes import router as object_store_router
 from api.ops_routes import router as ops_router
+from api.prometheus_routes import router as prometheus_router
 from api.qlora_routes import router as qlora_router
 from api.queue_routes import router as queue_router
 from api.reputation_routes import router as reputation_router
 from api.runtime_extra_routes import router as rt_router
 from api.runtime_forward_routes import router as fw_router
+from api.scheduler_routes import router as scheduler_router
 from api.strong_benchmark_routes import router as strong_benchmark_router
 from api.main import app
 
@@ -44,3 +46,5 @@ app.include_router(queue_router)
 app.include_router(reputation_router)
 app.include_router(artifact_version_router)
 app.include_router(admin_router)
+app.include_router(prometheus_router)
+app.include_router(scheduler_router)
