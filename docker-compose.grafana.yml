@@ -1,0 +1,5 @@
+services:
+  grafana:
+    volumes:
+      - ./deploy/grafana/ailovanta-dashboard.json:/var/lib/grafana/dashboards/ailovanta-dashboard.json:ro
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
