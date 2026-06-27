@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ailovanta Admin</title>
+  <style>
+    body { margin: 0; font-family: Inter, Arial, sans-serif; background: #0b0f17; color: #e5e7eb; }
+    header { padding: 20px 28px; border-bottom: 1px solid #1f2937; background: #111827; }
+    h1 { margin: 0; font-size: 22px; }
+    main { padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    section { background: #111827; border: 1px solid #1f2937; border-radius: 14px; padding: 16px; }
+    h2 { margin: 0 0 12px; font-size: 16px; color: #93c5fd; }
+    button { background: #2563eb; color: white; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; margin: 4px 4px 8px 0; }
+    button.secondary { background: #374151; }
+    input { width: calc(100% - 18px); padding: 8px; margin: 4px 0 8px; background: #0b1220; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #030712; border-radius: 10px; padding: 12px; max-height: 280px; overflow: auto; font-size: 12px; }
+    .muted { color: #9ca3af; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ailovanta Admin Panel</h1>
+    <div class="muted">Local operations dashboard for migrations, queue, nodes, artifacts, events, and runtime.</div>
+  </header>
+  <main>
+    <section>
+      <h2>System</h2>
+      <button onclick="get('/ops/metrics','systemOut')">Metrics</button>
+      <button onclick="get('/ops/healthz','systemOut')">Health</button>
+      <button onclick="get('/ops/migrations','systemOut')">Migration Status</button>
+      <button onclick="post('/ops/migrations/run',{},'systemOut')">Run Migrations</button>
+      <pre id="systemOut"></pre>
+    </section>
+
+    <section>
+      <h2>Queue</h2>
+      <button onclick="get('/ops/queue','queueOut')">Queue Snapshot</button>
+      <button onclick="get('/jobs?limit=20','queueOut')">Recent Jobs</button>
+      <pre id="queueOut"></pre>
+    </section>
+
+    <section>
+      <h2>Nodes</h2>
+      <input id="nodeId" placeholder="node id" value="node-001" />
+      <input id="adminToken" placeholder="admin token header" />
+      <button onclick="issueNode()">Issue Token</button>
+      <button class="secondary" onclick="rotateNode()">Rotate Token</button>
+      <button class="secondary" onclick="revokeNode()">Revoke Token</button>
+      <button onclick="get('/nodes','nodesOut')">List Nodes</button>
+      <pre id="nodesOut"></pre>
+    </section>
+
+    <section>
+      <h2>Artifacts</h2>
+      <input id="artifactName" placeholder="artifact name" value="ailovanta-code" />
+      <button onclick="get('/ops/artifacts/versions','artifactOut')">Versions</button>
+      <button onclick="get('/ops/artifacts/active/' + val('artifactName'),'artifactOut')">Active</button>
+      <pre id="artifactOut"></pre>
+    </section>
+
+    <section>
+      <h2>Catalog / Runtime</h2>
+      <button onclick="get('/catalog/items','runtimeOut')">Catalog</button>
+      <button onclick="get('/runtime/status','runtimeOut')">Runtime Status</button>
+      <button onclick="get('/runtime/models','runtimeOut')">Runtime Models</button>
+      <button onclick="get('/runtime/nodes','runtimeOut')">Runtime Nodes</button>
+      <pre id="runtimeOut"></pre>
+    </section>
+
+    <section>
+      <h2>Events</h2>
+      <button onclick="get('/ops/events?limit=50','eventsOut')">Events</button>
+      <button onclick="post('/ops/events',{level:'info',source:'admin',message:'manual admin event',metadata:{}},'eventsOut')">Write Test Event</button>
+      <pre id="eventsOut"></pre>
+    </section>
+  </main>
+<script>
+const base = '';
+function val(id){ return document.getElementById(id).value; }
+function headers(){ const h = {'Content-Type':'application/json'}; const t = val('adminToken'); if(t) h['X-Ailovanta-Admin-Token'] = t; return h; }
+async function get(path,out){ const r = await fetch(base+path); document.getElementById(out).textContent = JSON.stringify(await r.json(), null, 2); }
+async function post(path,body,out){ const r = await fetch(base+path,{method:'POST',headers:headers(),body:JSON.stringify(body)}); document.getElementById(out).textContent = JSON.stringify(await r.json(), null, 2); }
+function issueNode(){ post('/node-keys/issue',{node_id:val('nodeId')},'nodesOut'); }
+function rotateNode(){ post('/node-keys/'+encodeURIComponent(val('nodeId'))+'/rotate',{},'nodesOut'); }
+function revokeNode(){ post('/node-keys/'+encodeURIComponent(val('nodeId'))+'/revoke',{},'nodesOut'); }
+get('/ops/metrics','systemOut');
+</script>
+</body>
+</html>
