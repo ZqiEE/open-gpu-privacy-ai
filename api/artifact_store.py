@@ -57,9 +57,10 @@ class LocalArtifactStore:
         target = target_dir / source.name
         shutil.copy2(source, target)
         digest = file_sha256(target)
+        artifact_uri = target.resolve().as_uri()
         meta = {"source_path": str(source), **(metadata or {})}
-        (target_dir / "metadata.json").write_text(json.dumps({"artifact_hash": digest, "artifact_uri": str(target), "metadata": meta}, ensure_ascii=False, indent=2), encoding="utf-8")
-        return StoredArtifact(artifact_uri=str(target), artifact_hash=digest, store="local", size_bytes=target.stat().st_size, metadata=meta)
+        (target_dir / "metadata.json").write_text(json.dumps({"artifact_hash": digest, "artifact_uri": artifact_uri, "metadata": meta}, ensure_ascii=False, indent=2), encoding="utf-8")
+        return StoredArtifact(artifact_uri=artifact_uri, artifact_hash=digest, store="local", size_bytes=target.stat().st_size, metadata=meta)
 
 
 class S3CompatibleArtifactStore:
