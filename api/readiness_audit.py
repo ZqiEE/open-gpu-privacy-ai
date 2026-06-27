@@ -10,6 +10,43 @@ from api.prod_config import load_config
 from api.receipt_gate import ready_for_catalog_publish
 
 
+def check_chunk_manifest_ref(ref: Any) -> dict[str, Any]:
+    blockers: list[str] = []
+    if not isinstance(ref, dict):
+        return {"ok": False, "blockers": ["missing_artifact_manifest"]}
+    uri = str(ref.get("uri") or ref.get("manifest_uri") or "")
+    if not uri:
+        blockers.append("artifact_manifest_missing_uri")
+    if int(ref.get("chunk_count") or 0) <= 0:
+        blockers.append("artifact_manifest_missing_chunks")
+    if int(ref.get("chunk_size") or 0) <= 0:
+        blockers.append("artifact_manifest_missing_chunk_size")
+    return {"ok": not blockers, "blockers": blockers, "uri": uri, "chunk_count": ref.get("chunk_count"), "chunk_size": ref.get("chunk_size")}
+
+
+def check_chunk_manifest_file(uri: str) -> dict[str, Any]:
+    if not uri.startswith("file://"):
+        return {"ok": True, "skipped": True, "reason": "non_file_manifest_uri"}
+    path = Path(uri.removeprefix("file://"))
+    if not path.exists():
+        return {"ok": False, "blockers": ["artifact_manifest_file_missing"], "path": str(path)}
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {"ok": False, "blockers": ["artifact_manifest_json_error:" + exc.__class__.__name__], "path": str(path)}
+    blockers: list[str] = []
+    chunks = manifest.get("chunks") if isinstance(manifest.get("chunks"), list) else []
+    if not chunks:
+        blockers.append("artifact_manifest_no_chunks")
+    for chunk in chunks:
+        if not str(chunk.get("chunk_hash") or "").startswith("sha256:"):
+            blockers.append("chunk_missing_sha256")
+        sources = chunk.get("sources") if isinstance(chunk.get("sources"), list) else []
+        if not sources:
+            blockers.append("chunk_missing_sources")
+    return {"ok": not blockers, "blockers": sorted(set(blockers)), "path": str(path), "chunk_count": len(chunks)}
+
+
 class ReadinessAudit:
     def __init__(self, catalog: Catalog | None = None) -> None:
         self.catalog = catalog or Catalog()
@@ -30,6 +67,12 @@ class ReadinessAudit:
             blockers.append("artifact_hash_not_sha256")
         if not gate.get("ok"):
             blockers.append("publish_gate:" + str(gate.get("reason")))
+        manifest_ref = check_chunk_manifest_ref(item.get("artifact_manifest"))
+        if not manifest_ref.get("ok"):
+            blockers.extend(str(item) for item in manifest_ref.get("blockers", []))
+        manifest_file = check_chunk_manifest_file(str(manifest_ref.get("uri") or "")) if manifest_ref.get("uri") else None
+        if manifest_file and not manifest_file.get("ok"):
+            blockers.extend(str(item) for item in manifest_file.get("blockers", []))
         integrity = None
         if verify_bytes and uri and digest.startswith("sha256:"):
             try:
@@ -39,7 +82,7 @@ class ReadinessAudit:
             except Exception as exc:
                 integrity = {"ok": False, "reason": exc.__class__.__name__}
                 blockers.append("artifact_integrity_error:" + exc.__class__.__name__)
-        return {"item_id": item.get("id"), "name": item.get("name"), "version": item.get("version"), "status": item.get("status"), "ok": not blockers, "blockers": blockers, "warnings": warnings, "gate": gate, "integrity": integrity, "artifact_uri": uri, "artifact_hash": digest}
+        return {"item_id": item.get("id"), "name": item.get("name"), "version": item.get("version"), "status": item.get("status"), "ok": not blockers, "blockers": sorted(set(blockers)), "warnings": warnings, "gate": gate, "integrity": integrity, "artifact_manifest": {"ref": manifest_ref, "file": manifest_file}, "artifact_uri": uri, "artifact_hash": digest}
 
     def check_catalog(self, status: str | None = "published", verify_bytes: bool = False) -> dict[str, Any]:
         items = self.catalog.list(status=status)
@@ -65,10 +108,14 @@ class ReadinessAudit:
                 item_blockers.append("manifest_missing_sha256_hash")
             if manifest and not manifest.get("proof"):
                 item_blockers.append("manifest_missing_proof")
+            if manifest:
+                ref = check_chunk_manifest_ref(manifest.get("artifact_manifest"))
+                if not ref.get("ok"):
+                    item_blockers.extend(str(item) for item in ref.get("blockers", []))
             route = manifest.get("route") if isinstance(manifest.get("route"), dict) else {}
             if manifest and not manifest.get("anchor_receipt") and not route.get("receipt"):
                 item_blockers.append("manifest_missing_anchor_receipt")
-            item = {"path": str(path), "ok": not item_blockers, "blockers": item_blockers, "name": manifest.get("name"), "version": manifest.get("version")}
+            item = {"path": str(path), "ok": not item_blockers, "blockers": sorted(set(item_blockers)), "name": manifest.get("name"), "version": manifest.get("version")}
             checked.append(item)
             if item_blockers:
                 blockers.append(item)
