@@ -13,16 +13,17 @@ router = APIRouter(prefix="/route-health", tags=["route-health"])
 class RouteHealthBody(BaseModel):
     route_key: str = "owned-chat/default"
     disable_if_bad: bool = False
+    verify_artifact: bool = False
 
 
 @router.post("/check")
 def check_route_health(body: RouteHealthBody) -> dict[str, Any]:
     checker = RouteHealth()
     if body.disable_if_bad:
-        return checker.disable_if_bad(body.route_key)
-    return checker.check(body.route_key)
+        return checker.disable_if_bad(body.route_key, verify_artifact=body.verify_artifact)
+    return checker.check(body.route_key, verify_artifact=body.verify_artifact)
 
 
 @router.get("/{route_key:path}")
-def get_route_health(route_key: str) -> dict[str, Any]:
-    return RouteHealth().check(route_key)
+def get_route_health(route_key: str, verify_artifact: bool = False) -> dict[str, Any]:
+    return RouteHealth().check(route_key, verify_artifact=verify_artifact)
