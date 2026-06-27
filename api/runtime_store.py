@@ -5,6 +5,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from api.node_trust import NodeTrustStore
+from api.prod_config import load_config
 from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRegistry, RuntimeRequest
 from api.sqlite_utils import connect_sqlite
 
@@ -145,13 +147,38 @@ class RuntimeStore:
             rows = conn.execute("SELECT * FROM runtime_nodes ORDER BY runtime_id ASC").fetchall()
         return [self._api_runtime(dict(row)) for row in rows]
 
+    @staticmethod
+    def runtime_trust_check(runtime: dict[str, Any], trust: NodeTrustStore | None = None) -> dict[str, Any]:
+        cfg = load_config()
+        node_id = str(runtime.get("node_id") or "")
+        if not node_id:
+            return {"ok": False, "reason": "missing_node_id"}
+        item = (trust or NodeTrustStore()).get(node_id)
+        if not item:
+            return {"ok": False, "reason": "unknown_node", "node_id": node_id}
+        if item.get("status") != "active":
+            return {"ok": False, "reason": "node_not_active", "node_id": node_id, "status": item.get("status")}
+        trust_score = float(item.get("trust_score") or 0.0)
+        if trust_score < cfg.min_avg_trust_score:
+            return {"ok": False, "reason": "node_trust_too_low", "node_id": node_id, "trust_score": trust_score, "min_trust_score": cfg.min_avg_trust_score}
+        return {"ok": True, "node_id": node_id, "trust_score": trust_score, "status": item.get("status")}
+
     def route(self, request: RuntimeRequest) -> dict:
         registry = RuntimeRegistry()
         for model in self.list_models():
             registry.register_model(self._model_from_api(model))
+        rejected: list[dict[str, Any]] = []
         for runtime in self.list_runtimes():
+            check = self.runtime_trust_check(runtime)
+            if request.verification_required and not check.get("ok"):
+                rejected.append({"runtime_id": runtime.get("runtime_id"), "node_id": runtime.get("node_id"), "reason": check.get("reason"), "check": check})
+                continue
+            if check.get("ok"):
+                runtime = {**runtime, "trust_score": check.get("trust_score", runtime.get("trust_score", 0.0))}
             registry.register_runtime(self._runtime_from_api(runtime))
         routed = registry.route(request)
+        if rejected:
+            routed["rejected_runtimes"] = rejected[:50]
         self.record_assignment(request, routed)
         return routed
 
@@ -177,7 +204,7 @@ class RuntimeStore:
                     assignment.get("model_manifest_hash") or routed.get("model_manifest_hash"),
                     assignment.get("estimated_latency_ms"),
                     assignment.get("price_per_1k_tokens"),
-                    1 if assignment.get("verification_required") else 0,
+                    1 if request.verification_required else 0,
                     assignment.get("score"),
                     1 if routed.get("assigned") else 0,
                     routed.get("reason") or assignment.get("reason") or "unknown",
