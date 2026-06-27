@@ -40,7 +40,7 @@ http://127.0.0.1:9001
 Postgres, Redis, Prometheus, Grafana, API, and Runtime:
 
 ```bash
-docker compose -f docker-compose.prod.yml up --build
+docker compose -f docker-compose.prod.yml -f docker-compose.grafana.yml up --build
 ```
 
 Prometheus:
@@ -60,6 +60,23 @@ Prometheus scrape endpoint:
 ```text
 GET /metrics
 ```
+
+## Store selection
+
+Local default:
+
+```text
+SQLite SchedulerStore
+```
+
+Production mode:
+
+```text
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+```
+
+When `DATABASE_URL` starts with `postgresql://` or `postgres://`, the API uses `PostgresStore`. When `REDIS_URL` is set, queued jobs are dispatched through Redis sorted sets while job state remains in the database.
 
 ## Ubuntu systemd
 
@@ -99,6 +116,16 @@ Secure panel with browser-stored admin header:
 
 ```text
 http://127.0.0.1:8000/admin-secure
+```
+
+If `AILOVANTA_ADMIN_TOKEN` is set, sensitive paths are protected:
+
+```text
+/ops
+/node-keys
+/objects
+/artifacts
+/adapters
 ```
 
 ## Nginx
@@ -164,17 +191,6 @@ export AILOVANTA_S3_REGION=auto
 export AWS_ACCESS_KEY_ID=xxx
 export AWS_SECRET_ACCESS_KEY=xxx
 ```
-
-## Postgres / Redis
-
-The production compose file sets:
-
-```text
-DATABASE_URL=postgresql://...
-REDIS_URL=redis://...
-```
-
-Current code keeps SQLite as the safe local default and exposes Postgres/Redis health/config so production migration can be staged without breaking local development.
 
 ## Dynamic scheduling
 
