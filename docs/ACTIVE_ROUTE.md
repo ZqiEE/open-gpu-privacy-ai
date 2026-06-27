@@ -59,6 +59,21 @@ artifact binding exists and is active/candidate
 runtime doctor reports ready
 ```
 
+With artifact verification enabled, health also checks:
+
+```text
+binding checkpoint_uri/backend_ref is fetchable
+artifact bytes match artifact_hash
+bad artifact can disable the active route
+```
+
+API:
+
+```text
+GET /route-health/owned-chat/default?verify_artifact=true
+POST /route-health/check {"route_key":"owned-chat/default","disable_if_bad":true,"verify_artifact":true}
+```
+
 ## Chat through active route
 
 ```text
@@ -86,9 +101,29 @@ If the route exists but fails health checks, it returns `owned-route-unhealthy`.
 
 ```text
 proof/trust gate passes
+artifact integrity gate passes when enabled
 runtime doctor passes
 model warm succeeds
 ```
+
+Enable artifact verification for route publication:
+
+```bash
+export AILOVANTA_VERIFY_ROUTE_ARTIFACT=true
+```
+
+Or pass `verify_artifact=true` to the apply API:
+
+```json
+{
+  "result_path": "runtime_data/local_loop/foundation_result.json",
+  "runtime_id": "rt-owned-1",
+  "node_id": "node-owned-1",
+  "verify_artifact": true
+}
+```
+
+If the artifact cannot be fetched or its sha256 does not match, apply will not warm or publish the route.
 
 ## Rollback behavior
 
