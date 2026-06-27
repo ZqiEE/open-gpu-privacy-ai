@@ -7,11 +7,11 @@ from api.prod_config import config_status
 from api.queue_control import QueueControl
 from api.redis_queue import RedisQueue
 from api.runtime_store import RuntimeStore
-from api.storage import SchedulerStore
+from api.store_factory import create_scheduler_store, store_status
 
 
 router = APIRouter()
-store = SchedulerStore()
+store = create_scheduler_store()
 runtime = RuntimeStore()
 queue = QueueControl()
 log = EventLog()
@@ -27,11 +27,11 @@ def line(name: str, value: int | float, labels: dict[str, str] | None = None) ->
 
 @router.get("/metrics")
 def prometheus_metrics() -> Response:
-    status = store.status()
+    status = store_status(store)
     rt = runtime.status()
     qs = queue.snapshot()
     cfg = config_status()
-    redis_health = redis_queue.health()
+    redis_health = status.get("redis") or redis_queue.health()
     rows = [
         "# HELP ailovanta_jobs_total Jobs by status",
         "# TYPE ailovanta_jobs_total gauge",
@@ -50,6 +50,7 @@ def prometheus_metrics() -> Response:
         line("ailovanta_queue_queued", qs.get("queued", 0)),
         line("ailovanta_queue_assigned", qs.get("assigned", 0)),
         line("ailovanta_redis_up", 1 if redis_health.get("ok") else 0),
+        line("ailovanta_redis_jobs_queued", (redis_health.get("queued") or 0) if isinstance(redis_health, dict) else 0),
         line("ailovanta_config_postgres", 1 if cfg.get("database_backend") == "postgres" else 0),
     ]
     for level, count in log.summary().get("levels", {}).items():
