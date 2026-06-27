@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from api.admin_security import admin_token_header
 from api.reputation_ops import ReputationOps
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(admin_token_header)])
 rep = ReputationOps()
 
 
