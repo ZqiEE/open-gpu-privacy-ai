@@ -50,13 +50,25 @@ class RedisDispatchStore:
             candidate = {"job_id": api_job["id"], "job_type": api_job["type"], "payload_json": json.dumps(api_job["payload"]), "attempts": api_job.get("attempts", 0)}
             if not self.router.can_assign(node, candidate)[0]:
                 continue
+            claimed = self.claim_job(job_id, node_id)
+            if claimed:
+                self.client.zrem(self.queue_key(), job_id)
+                return claimed
             self.client.zrem(self.queue_key(), job_id)
-            if hasattr(self.base, "claim_job"):
-                claimed = self.base.claim_job(job_id, node_id)
-                if claimed:
-                    return claimed
-            return self.base.next_job(node_id)
         return None
+
+    def claim_job(self, job_id: str, node_id: str) -> dict | None:
+        if hasattr(self.base, "claim_job"):
+            return self.base.claim_job(job_id, node_id)
+        with self.base.connect() as conn:
+            cur = conn.execute(
+                "UPDATE jobs SET status = 'assigned', assigned_to = ?, assigned_at = CURRENT_TIMESTAMP, attempts = attempts + 1 WHERE job_id = ? AND status = 'queued'",
+                (node_id, job_id),
+            )
+            if cur.rowcount <= 0:
+                return None
+        raw = self.base.get_job(job_id)
+        return self.base._api_job(raw) if raw and hasattr(self.base, "_api_job") else raw
 
     def redis_status(self) -> dict[str, Any]:
         if not self.client:
