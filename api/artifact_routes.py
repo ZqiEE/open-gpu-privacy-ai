@@ -13,8 +13,9 @@ class ArtifactFetchIn(BaseModel):
     url: str
     output_dir: str = "runtime_data/artifacts"
     expected_sha256: str | None = None
+    extract: bool = True
 
 
 @router.post("/artifacts/fetch")
 def fetch_remote_artifact(body: ArtifactFetchIn) -> dict:
-    return fetch_artifact(body.url, body.output_dir, body.expected_sha256)
+    return fetch_artifact(body.url, body.output_dir, body.expected_sha256, body.extract)
