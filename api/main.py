@@ -16,6 +16,7 @@ from api.dashboard import DashboardService
 from api.github_auth import GitHubAuthConfigError, build_github_login_url, exchange_code_for_token, fetch_github_profile
 from api.health import get_health
 from api.memory_store import MemoryStore
+from api.node_security import require_token
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.openai_compat import ChatCompletionRequest, build_chat_completion_response, extract_user_prompt
 from api.reputation import ReputationService
@@ -167,6 +168,13 @@ def bearer_token(authorization: str | None) -> str:
     return authorization.removeprefix("Bearer ").strip()
 
 
+def node_guard(token: str | None) -> None:
+    try:
+        require_token(token)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
 def answer_with_ollama(prompt: str, context_messages: list[dict] | None = None) -> tuple[str, str]:
     try:
         if context_messages is not None:
@@ -295,7 +303,8 @@ def requeue_stale_jobs(older_than_minutes: int = 30) -> dict:
 
 
 @app.post("/nodes/register")
-def register_node(body: NodeRegister) -> dict:
+def register_node(body: NodeRegister, x_ailovanta_node_token: str | None = Header(default=None)) -> dict:
+    node_guard(x_ailovanta_node_token)
     return store.register_node(body.model_dump())
 
 
@@ -305,7 +314,8 @@ def list_nodes(limit: int = 50) -> dict:
 
 
 @app.post("/nodes/heartbeat")
-def heartbeat(body: Heartbeat) -> dict:
+def heartbeat(body: Heartbeat, x_ailovanta_node_token: str | None = Header(default=None)) -> dict:
+    node_guard(x_ailovanta_node_token)
     node = store.update_heartbeat(body.node_id, body.status)
     if not node:
         raise HTTPException(status_code=404, detail="node not found")
@@ -337,7 +347,8 @@ def create_job(job_id: str, job_type: str, payload: dict) -> dict:
 
 @app.get("/jobs/next")
 @app.post("/jobs/next")
-def next_job(node_id: str) -> dict:
+def next_job(node_id: str, x_ailovanta_node_token: str | None = Header(default=None)) -> dict:
+    node_guard(x_ailovanta_node_token)
     job = store.next_job(node_id)
     if not job:
         raise HTTPException(status_code=404, detail="no matching job")
@@ -346,7 +357,8 @@ def next_job(node_id: str) -> dict:
 
 @app.post("/jobs/result")
 @app.post("/results")
-def submit_result(body: JobResult) -> dict:
+def submit_result(body: JobResult, x_ailovanta_node_token: str | None = Header(default=None)) -> dict:
+    node_guard(x_ailovanta_node_token)
     result = store.submit_result(body.model_dump())
     verification = verifier.verify(result)
     stored = store.record_verification(result, verification["score"], verification["passed"], verification["reason"])
