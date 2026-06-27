@@ -22,19 +22,19 @@ from api.openai_compat import ChatCompletionRequest, build_chat_completion_respo
 from api.reputation import ReputationService
 from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRequest
 from api.runtime_store import RuntimeStore
-from api.storage import SchedulerStore
+from api.store_factory import create_scheduler_store, store_status
 from api.training import TrainingKind, TrainingPlanner
 from api.usage_store import UsageStore
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.11.0"
+APP_VERSION = "1.12.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 app = FastAPI(title="Ailovanta API", version=APP_VERSION)
 
 auth_store = AuthStore()
-store = SchedulerStore()
+store = create_scheduler_store()
 usage_store = UsageStore()
 dashboard = DashboardService(store)
 reputation = ReputationService(store)
@@ -186,7 +186,7 @@ def answer_with_ollama(prompt: str, context_messages: list[dict] | None = None) 
 
 @app.get("/")
 def root() -> dict:
-    return {"name": "Ailovanta", "version": APP_VERSION, "tagline": "AI powered by the world's distributed compute.", "app": "/app", "dashboard": "/dashboard", "docs": "/docs", "auth": "/auth/github/login", "ailovanta_native": "/ailovanta/v1/run", "ailovanta_chat": "/ailovanta/v1/chat", "compatibility_chat": "/v1/chat/completions", "scheduler": store.status(), "runtime": runtime_registry.status(), "conversations": conversations.status(), "auth_status": auth_store.status()}
+    return {"name": "Ailovanta", "version": APP_VERSION, "tagline": "AI powered by the world's distributed compute.", "app": "/app", "dashboard": "/dashboard", "admin": "/admin-secure", "docs": "/docs", "auth": "/auth/github/login", "ailovanta_native": "/ailovanta/v1/run", "ailovanta_chat": "/ailovanta/v1/chat", "compatibility_chat": "/v1/chat/completions", "scheduler": store_status(store), "runtime": runtime_registry.status(), "conversations": conversations.status(), "auth_status": auth_store.status()}
 
 
 @app.get("/app")
@@ -252,18 +252,18 @@ def health() -> dict:
 
 @app.get("/ready")
 def ready() -> dict:
-    status = store.status()
-    return {"ok": True, "scheduler_store": status["store"], "path": status["path"]}
+    status = store_status(store)
+    return {"ok": True, "scheduler_store": status["store"], "path": status.get("path") or status.get("database_url"), "redis": status.get("redis")}
 
 
 @app.get("/network/status")
 def network_status() -> dict:
-    return store.status()
+    return store_status(store)
 
 
 @app.get("/verification/status")
 def verification_status() -> dict:
-    status = store.status()
+    status = store_status(store)
     return {"verifications": status["verifications"], "passed_verifications": status["passed_verifications"], "pass_rate": round(status["passed_verifications"] / status["verifications"], 3) if status["verifications"] else 0.0}
 
 
