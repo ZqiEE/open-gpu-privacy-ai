@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from api.backup_store import BackupStore
 from api.prod_ready import check_production_ready
 from api.runtime_readiness import RuntimeReadiness
 
@@ -30,15 +31,25 @@ def check_abuse_controls() -> dict[str, Any]:
     return {"ok": not blockers, "blockers": blockers, "warnings": warnings, "rate_limit_enabled": rate_limit_enabled, "rate_limit_per_minute": per_minute, "admin_token_set": admin_token_set}
 
 
+def check_backup_controls() -> dict[str, Any]:
+    status = BackupStore().latest_status()
+    if not status.get("ok"):
+        return {"ok": False, "blockers": [str(status.get("reason") or "backup_not_ready")], "status": status}
+    return {"ok": True, "blockers": [], "status": status}
+
+
 def check_production_ready_plus(result_path: str | Path | None = None, route_key: str = "owned-chat/default", verify_bytes: bool = False) -> dict[str, Any]:
     base = check_production_ready(result_path=result_path, route_key=route_key, verify_bytes=verify_bytes)
     runtime_route = RuntimeReadiness().check_route(route_key)
     abuse = check_abuse_controls()
+    backups = check_backup_controls()
     blockers = list(base.get("blockers", []))
     warnings = list(base.get("warnings", []))
     if not runtime_route.get("ok"):
         blockers.append("runtime_route:" + str(runtime_route.get("reason")))
     if not abuse.get("ok"):
         blockers.extend("abuse:" + str(item) for item in abuse.get("blockers", []))
+    if not backups.get("ok"):
+        blockers.extend("backup:" + str(item) for item in backups.get("blockers", []))
     warnings.extend("abuse:" + str(item) for item in abuse.get("warnings", []))
-    return {**base, "ok": not blockers, "stage": "production_ready" if not blockers else "blocked", "blockers": sorted(set(blockers)), "warnings": sorted(set(warnings)), "runtime_route": runtime_route, "abuse_controls": abuse}
+    return {**base, "ok": not blockers, "stage": "production_ready" if not blockers else "blocked", "blockers": sorted(set(blockers)), "warnings": sorted(set(warnings)), "runtime_route": runtime_route, "abuse_controls": abuse, "backup_controls": backups}
