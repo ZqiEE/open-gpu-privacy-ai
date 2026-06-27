@@ -20,10 +20,10 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
     data_path = payload.get("data_path") or payload.get("dataset_uri")
     base_model = payload.get("base_model") or "local"
     max_steps = int(payload.get("max_steps") or payload.get("steps") or 10)
-    use_real = bool(payload.get("real") or payload.get("use_transformers"))
+    use_real = bool(payload.get("real") or payload.get("use_transformers") or payload.get("peft") or payload.get("qlora"))
 
     if use_real:
-        result = _run_transformers_job(base_model, data_path, out_dir, max_steps)
+        result = _run_transformers_job(base_model, data_path, out_dir, max_steps, payload)
     else:
         result = _write_portable_output(base_model, data_path, out_dir, max_steps)
 
@@ -32,7 +32,7 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "cpu_threads": profile.get("cpu_threads"),
         "memory_gb": profile.get("memory_gb"),
         "has_gpu": bool(profile.get("has_gpu")),
-        "real_backend": result["backend"],
+        "backend": result["backend"],
         "score": result["score"],
         "created_at": time(),
     }
@@ -42,7 +42,7 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "version": version,
         "source_job_id": source_id,
         "base_model": base_model,
-        "kind": payload.get("kind") or "adapter",
+        "kind": result.get("kind") or payload.get("kind") or "adapter",
         "location": str(out_dir),
         "metrics": metrics,
         "backend_message": result["message"],
@@ -61,23 +61,18 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
 
 
 def _write_portable_output(base_model: str, data_path: str | None, out_dir: Path, max_steps: int) -> dict[str, Any]:
-    info = {
-        "base_model": base_model,
-        "data_path": data_path,
-        "max_steps": max_steps,
-        "mode": "portable",
-    }
+    info = {"base_model": base_model, "data_path": data_path, "max_steps": max_steps, "mode": "portable"}
     (out_dir / "adapter_config.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"backend": "portable", "score": 0.62, "message": "portable artifact written; install optional model deps for local fine tune"}
+    return {"backend": "portable", "kind": "adapter", "score": 0.62, "message": "portable artifact written; install optional local deps for model tuning"}
 
 
-def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path, max_steps: int) -> dict[str, Any]:
+def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path, max_steps: int, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         from datasets import Dataset  # type: ignore
         from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments  # type: ignore
     except Exception as exc:
         fallback = _write_portable_output(base_model, data_path, out_dir, max_steps)
-        fallback["message"] = f"optional model deps missing: {exc}; portable artifact written"
+        fallback["message"] = f"optional local deps missing: {exc}; portable artifact written"
         return fallback
 
     if not data_path or not Path(data_path).exists():
@@ -85,18 +80,7 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
         fallback["message"] = "dataset missing; portable artifact written"
         return fallback
 
-    rows: list[dict[str, str]] = []
-    with Path(data_path).open("r", encoding="utf-8") as handle:
-        for line in handle:
-            if len(rows) >= max(8, max_steps):
-                break
-            try:
-                item = json.loads(line)
-            except Exception:
-                continue
-            text = item.get("text") or item.get("target") or item.get("content")
-            if text:
-                rows.append({"text": str(text)[:4096]})
+    rows = _read_rows(Path(data_path), max_rows=max(8, max_steps))
     if not rows:
         fallback = _write_portable_output(base_model, data_path, out_dir, max_steps)
         fallback["message"] = "dataset has no usable text; portable artifact written"
@@ -105,11 +89,43 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(base_model)
+
+    load_kwargs: dict[str, Any] = {}
+    qlora = bool(payload.get("qlora"))
+    if qlora:
+        try:
+            from transformers import BitsAndBytesConfig  # type: ignore
+            load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype="float16", bnb_4bit_quant_type="nf4")
+        except Exception:
+            pass
+
+    model = AutoModelForCausalLM.from_pretrained(base_model, **load_kwargs)
+    backend = "transformers"
+    kind = "full_model"
+
+    if payload.get("peft") or payload.get("lora") or payload.get("qlora"):
+        try:
+            from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training  # type: ignore
+            if qlora:
+                model = prepare_model_for_kbit_training(model)
+            config = LoraConfig(
+                r=int(payload.get("lora_r", 8)),
+                lora_alpha=int(payload.get("lora_alpha", 16)),
+                lora_dropout=float(payload.get("lora_dropout", 0.05)),
+                bias="none",
+                task_type=TaskType.CAUSAL_LM,
+                target_modules=payload.get("target_modules") or None,
+            )
+            model = get_peft_model(model, config)
+            backend = "qlora" if qlora else "lora"
+            kind = "adapter"
+        except Exception as exc:
+            (out_dir / "peft_error.txt").write_text(str(exc), encoding="utf-8")
+
     dataset = Dataset.from_list(rows)
 
     def tokenize(batch: dict[str, list[str]]) -> dict[str, Any]:
-        encoded = tokenizer(batch["text"], truncation=True, padding="max_length", max_length=512)
+        encoded = tokenizer(batch["text"], truncation=True, padding="max_length", max_length=int(payload.get("max_length", 512)))
         encoded["labels"] = encoded["input_ids"].copy()
         return encoded
 
@@ -117,7 +133,9 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
     args = TrainingArguments(
         output_dir=str(out_dir),
         max_steps=max_steps,
-        per_device_train_batch_size=1,
+        per_device_train_batch_size=int(payload.get("batch_size", 1)),
+        gradient_accumulation_steps=int(payload.get("gradient_accumulation_steps", 1)),
+        learning_rate=float(payload.get("learning_rate", 2e-4)),
         logging_steps=max(1, min(10, max_steps)),
         save_steps=max_steps,
         report_to=[],
@@ -126,7 +144,23 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
     trainer.train()
     trainer.save_model(str(out_dir))
     tokenizer.save_pretrained(str(out_dir))
-    return {"backend": "transformers", "score": 0.8, "message": "local model fine tune finished"}
+    return {"backend": backend, "kind": kind, "score": 0.82 if kind == "adapter" else 0.78, "message": f"local {backend} run finished"}
+
+
+def _read_rows(path: Path, max_rows: int) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= max_rows:
+                break
+            try:
+                item = json.loads(line)
+            except Exception:
+                continue
+            text = item.get("text") or item.get("target") or item.get("content")
+            if text:
+                rows.append({"text": str(text)[:4096]})
+    return rows
 
 
 def merge_outputs(items: list[dict[str, Any]], output_dir: str | Path) -> dict[str, Any]:
