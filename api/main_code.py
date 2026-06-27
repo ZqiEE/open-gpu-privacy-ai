@@ -5,6 +5,7 @@ from api.admin_guard_middleware import install_admin_guard
 from api.artifact_routes import router as artifact_router
 from api.artifact_version_routes import router as artifact_version_router
 from api.benchmark_routes import router as benchmark_router
+from api.catalog_secure_publish import router as csp_router
 from api.catalog_routes import router as catalog_router
 from api.catalog_extra_routes import router as extra_router
 from api.code_chat_api import router as code_chat_router
@@ -30,6 +31,7 @@ install_admin_guard(app)
 
 app.include_router(code_chat_router)
 app.include_router(code_result_router)
+app.include_router(csp_router)
 app.include_router(catalog_router)
 app.include_router(extra_router)
 app.include_router(rt_router)
