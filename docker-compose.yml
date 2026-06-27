@@ -1,13 +1,36 @@
 services:
-  api:
+  ailovanta-api:
     build: .
+    container_name: ailovanta-api
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      AILOVANTA_MODEL_STAGE: "bootstrap_local_runtime"
-      AILOVANTA_OWNED_MODEL_READY: "false"
-      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
-      OLLAMA_MODEL: "llama3.2:3b"
-      OLLAMA_TIMEOUT_SECONDS: "30"
+      AILOVANTA_ADMIN_TOKEN: ${AILOVANTA_ADMIN_TOKEN:-}
+      AILOVANTA_NODE_TOKEN: ${AILOVANTA_NODE_TOKEN:-}
+      AILOVANTA_S3_ENDPOINT: ${AILOVANTA_S3_ENDPOINT:-}
+      AILOVANTA_S3_BUCKET: ${AILOVANTA_S3_BUCKET:-}
+      AILOVANTA_S3_REGION: ${AILOVANTA_S3_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+    volumes:
+      - ./runtime_data:/app/runtime_data
+
+  ailovanta-runtime:
+    build: .
+    container_name: ailovanta-runtime
+    restart: unless-stopped
+    command: ["uvicorn", "api.runtime_server:app", "--host", "0.0.0.0", "--port", "9001"]
+    ports:
+      - "9001:9001"
+    environment:
+      AILOVANTA_RUNTIME_KEY: ${AILOVANTA_RUNTIME_KEY:-}
+      AILOVANTA_S3_ENDPOINT: ${AILOVANTA_S3_ENDPOINT:-}
+      AILOVANTA_S3_BUCKET: ${AILOVANTA_S3_BUCKET:-}
+      AILOVANTA_S3_REGION: ${AILOVANTA_S3_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     volumes:
       - ./runtime_data:/app/runtime_data
