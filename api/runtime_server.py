@@ -7,6 +7,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from api.local_runtime import LocalRuntime
+from api.object_store import get_object
 
 
 app = FastAPI(title="Ailovanta Runtime Node", version="0.1.0")
@@ -24,6 +25,13 @@ class LoadRequest(BaseModel):
     location: str
 
 
+class LoadObjectRequest(BaseModel):
+    model_key: str
+    key: str
+    output_path: str
+    bucket: str | None = None
+
+
 class GenerateRequest(BaseModel):
     model_key: str
     prompt: str
@@ -39,6 +47,14 @@ def health() -> dict:
 def load_model(body: LoadRequest, x_ailovanta_node_token: str | None = Header(default=None)) -> dict:
     guard(x_ailovanta_node_token)
     return runtime.load(body.model_key, body.location)
+
+
+@app.post("/load-object")
+def load_object_model(body: LoadObjectRequest, x_ailovanta_node_token: str | None = Header(default=None)) -> dict:
+    guard(x_ailovanta_node_token)
+    obj = get_object(body.key, body.output_path, body.bucket)
+    runtime_result = runtime.load(body.model_key, obj["output_path"])
+    return {"object": obj, "runtime": runtime_result}
 
 
 @app.get("/models")
