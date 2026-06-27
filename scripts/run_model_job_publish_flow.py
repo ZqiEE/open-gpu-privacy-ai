@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from api.artifact_manifest import write_chunk_manifest
 from api.model_job import run_model_job
 from api.wio import signed_result
 
@@ -43,6 +44,7 @@ def main() -> int:
     parser.add_argument("--node-secret", default="demo-secret")
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--loose", action="store_true")
+    parser.add_argument("--chunk-size", type=int, default=8 * 1024 * 1024)
     args = parser.parse_args()
 
     payload = json.loads(Path(args.payload).read_text(encoding="utf-8"))
@@ -60,21 +62,34 @@ def main() -> int:
         "metadata": {"name": name, "version": version, "source_job_id": args.source_id, "kind": job_result["kind"]},
     })["artifact"]
 
+    manifest_path = Path("runtime_data/artifact_manifests") / f"{artifact_id}.manifest.json"
+    artifact_manifest = write_chunk_manifest(
+        zip_path,
+        stored["artifact_uri"],
+        manifest_path,
+        chunk_size=args.chunk_size,
+        replicas=[stored["artifact_uri"]],
+        metadata={"name": name, "version": version, "source_job_id": args.source_id, "kind": job_result["kind"]},
+    )
+
     receipt = signed_result({
         "task_id": args.source_id,
         "checkpoint_uri": stored["artifact_uri"],
         "checkpoint_hash": stored["artifact_hash"],
+        "artifact_manifest_uri": manifest_path.resolve().as_uri(),
+        "artifact_manifest_hash": artifact_manifest["artifact_hash"],
         "token_count": int((job_result.get("metrics") or {}).get("steps") or 0),
         "train_loss": 0.0,
         "eval_loss": 0.0,
     }, node_id=args.node_id, secret=args.node_secret)
 
+    metrics = {**job_result.get("metrics", {}), "artifact_manifest": {"uri": manifest_path.resolve().as_uri(), "chunk_count": artifact_manifest["chunk_count"], "chunk_size": artifact_manifest["chunk_size"]}}
     cataloged = call("POST", args.server, "/catalog/from-receipt", {
         "receipt": receipt,
         "name": name,
         "version": version,
         "kind": job_result["kind"],
-        "metrics": job_result.get("metrics", {}),
+        "metrics": metrics,
         "require_valid": not args.loose,
     })
     item_id = cataloged["item"]["id"]
@@ -88,6 +103,8 @@ def main() -> int:
         "job_result": job_result,
         "bundle": str(zip_path),
         "artifact": stored,
+        "artifact_manifest": artifact_manifest,
+        "artifact_manifest_path": str(manifest_path),
         "receipt": receipt,
         "cataloged": cataloged,
         "validated": validated,
