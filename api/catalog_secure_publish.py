@@ -23,6 +23,17 @@ class SecurePublishIn(BaseModel):
     adapter_compatible: bool = True
 
 
+def manifest_ready(item: dict) -> dict:
+    data = item.get("artifact_manifest")
+    if not isinstance(data, dict):
+        return {"ok": False, "reason": "artifact manifest required"}
+    if int(data.get("chunk_count") or 0) <= 0:
+        return {"ok": False, "reason": "artifact manifest chunks required"}
+    if not data.get("manifest_hash"):
+        return {"ok": False, "reason": "artifact manifest hash required"}
+    return {"ok": True}
+
+
 @router.post("/catalog/items/{item_id}/publish")
 def secure_publish_item(item_id: str, body: SecurePublishIn | None = None) -> dict:
     item = catalog.get(item_id)
@@ -33,6 +44,9 @@ def secure_publish_item(item_id: str, body: SecurePublishIn | None = None) -> di
     gate = ready_for_catalog_publish(item)
     if not gate.get("ok"):
         raise HTTPException(status_code=400, detail=gate)
+    manifest_gate = manifest_ready(item)
+    if not manifest_gate.get("ok"):
+        raise HTTPException(status_code=400, detail=manifest_gate)
     opts = body or SecurePublishIn()
     runtime_model = runtime.register_model(
         ModelManifest(
