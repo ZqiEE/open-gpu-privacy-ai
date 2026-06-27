@@ -1,0 +1,13 @@
+[Unit]
+Description=Ailovanta API
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/ailovanta
+EnvironmentFile=-/etc/ailovanta/ailovanta.env
+ExecStart=/opt/ailovanta/.venv/bin/uvicorn api.main_code:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
