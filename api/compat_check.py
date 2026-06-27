@@ -11,11 +11,15 @@ def module_state(name: str) -> dict[str, Any]:
 
 
 def check_local_stack() -> dict[str, Any]:
+    system = platform.system()
     result: dict[str, Any] = {
         "platform": platform.platform(),
+        "system": system,
         "python": platform.python_version(),
         "modules": [module_state(name) for name in ["torch", "transformers", "datasets", "accelerate", "peft", "bitsandbytes"]],
         "cuda": {"available": False, "device_count": 0, "devices": []},
+        "qlora_ready": False,
+        "lora_ready": False,
         "recommendations": [],
     }
     try:
@@ -31,6 +35,9 @@ def check_local_stack() -> dict[str, Any]:
         result["torch_error"] = str(exc)
 
     installed = {item["name"]: item["installed"] for item in result["modules"]}
+    result["lora_ready"] = bool(installed.get("torch") and installed.get("transformers") and installed.get("datasets") and installed.get("peft"))
+    result["qlora_ready"] = bool(result["lora_ready"] and installed.get("bitsandbytes") and result["cuda"]["available"] and system == "Linux")
+
     if not installed.get("torch"):
         result["recommendations"].append("install torch before real local model runs")
     if not installed.get("transformers") or not installed.get("datasets"):
@@ -39,6 +46,10 @@ def check_local_stack() -> dict[str, Any]:
         result["recommendations"].append("install peft for LoRA adapter runs")
     if not installed.get("bitsandbytes"):
         result["recommendations"].append("bitsandbytes missing; QLoRA 4-bit may fall back or fail on this system")
+    if system == "Windows":
+        result["recommendations"].append("Windows detected: use LoRA or WSL2/Linux for QLoRA; bitsandbytes is usually smoother on Linux + NVIDIA CUDA")
+    if system != "Linux":
+        result["recommendations"].append("QLoRA production path recommended on Linux with NVIDIA CUDA")
     if not result["cuda"]["available"]:
         result["recommendations"].append("CUDA GPU not detected; real training may be slow")
     return result
