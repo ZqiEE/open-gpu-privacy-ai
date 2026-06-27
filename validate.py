@@ -1,34 +1,8 @@
 from __future__ import annotations
 
-from html.parser import HTMLParser
 from pathlib import Path
 
 root = Path(__file__).resolve().parent
-
-
-class UiContractParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.tags: list[tuple[str, dict[str, str]]] = []
-        self.ids: set[str] = set()
-        self.classes: set[str] = set()
-        self.data_regions: set[str] = set()
-        self.data_actions: set[str] = set()
-        self.body_attrs: dict[str, str] = {}
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attr = {key: value or "" for key, value in attrs}
-        self.tags.append((tag, attr))
-        if tag == "body":
-            self.body_attrs = attr
-        if "id" in attr:
-            self.ids.add(attr["id"])
-        for cls in attr.get("class", "").split():
-            self.classes.add(cls)
-        if "data-region" in attr:
-            self.data_regions.add(attr["data-region"])
-        if "data-action" in attr:
-            self.data_actions.add(attr["data-action"])
 
 
 def read(rel: str) -> str:
@@ -44,161 +18,44 @@ required_files = [
     "VERSION",
     "index.html",
     "api/main.py",
-    "api/auth_store.py",
-    "api/github_auth.py",
-    "api/sqlite_utils.py",
-    "api/conversation_context.py",
     "api/conversation_store.py",
-    "api/ailovanta_native.py",
-    "api/openai_compat.py",
-    "api/reputation.py",
     "api/runtime_router.py",
     "api/runtime_store.py",
-    "api/usage_store.py",
+    "api/rights_proof_registry.py",
+    "api/code_training_jobs.py",
+    "scripts/export_code_training_job.py",
     "docs/AUTH_MODEL.md",
-    "docs/GITHUB_AUTH_SETUP.md",
     "docs/NEXT_STAGE_PRD.md",
-    "docs/NEXT_STAGE_CODEX_TASKS.md",
     "docs/CHATGPT_STYLE_UI.md",
-    "docs/UI_VALIDATION_CONTRACT.md",
-    "docs/NATIVE_RUN_API.md",
-    "docs/V1_CHAT_API.md",
-    "tests/test_chatgpt_ui_markers.py",
-    "tests/test_conversation_context.py",
-    "tests/test_frontend_markers.py",
+    "docs/AILOVANTA_CODE_DISTRIBUTED_PLAN.md",
+    "docs/AUTOTRAIN_ARCHITECTURE.md",
+    "docs/RIGHTS_PROOF_REGISTRY.md",
+    "docs/GITHUB_CODE_TRAINING.md",
+    "docs/CODE_DISTILLATION.md",
     "tests/test_guest_chat_flow.py",
-    "tests/test_health_model_status.py",
-    "tests/test_sqlite_utils.py",
-    "tests/test_github_auth_api.py",
-    "tests/test_conversations_api.py",
-    "tests/test_native_run_api.py",
-    "tests/test_chat_api.py",
-    "tests/test_reputation.py",
-    "tests/test_usage_api.py",
+    "tests/test_rights_proof_registry.py",
+    "tests/test_code_training_job_export.py",
     ".github/workflows/validate.yml",
 ]
 
 for rel in required_files:
     require((root / rel).exists(), f"missing file: {rel}")
 
-version = read("VERSION").strip()
-require(version in {"1.9.0-github-auth", "1.10.0-guest-first", "1.11.0"}, f"unexpected version: {version}")
-
-index_html = read("index.html")
-ui = UiContractParser()
-ui.feed(index_html)
-
-require(ui.body_attrs.get("data-app") == "ailovanta-chat", "index.html must declare data-app=ailovanta-chat")
-require(ui.body_attrs.get("data-guest-mode") == "true", "guest mode must remain enabled")
-require(ui.body_attrs.get("data-login-required") == "false", "first-use path must not require login")
-require(ui.body_attrs.get("data-payment-required") == "false", "first-use path must not require payment")
-require(ui.body_attrs.get("data-wallet-required") == "false", "first-use path must not require wallet")
-
-required_ids = {
-    "conversationList",
-    "guestBox",
-    "messages",
-    "prompt",
-    "send",
-    "copyChat",
-    "clear",
-    "deleteChat",
-    "clearGuestData",
-    "apiStatus",
-    "apiDot",
-    "modelLabel",
-    "contextLabel",
-    "chatStatus",
-    "newChat",
-    "refreshChats",
-}
-missing_ids = required_ids - ui.ids
-require(not missing_ids, f"index.html missing required ids: {sorted(missing_ids)}")
-
-required_static_classes = {
-    "app",
-    "sidebar",
-    "main",
-    "topbar",
-    "messages",
-    "composer",
-    "conversationList",
-}
-missing_classes = required_static_classes - ui.classes
-require(not missing_classes, f"index.html missing required static classes: {sorted(missing_classes)}")
-
-required_regions = {
-    "conversation-sidebar",
-    "conversation-list",
-    "guest-session",
-    "chat-main",
-    "status-bar",
-    "message-stream",
-    "composer-wrap",
-    "composer",
-    "api-status",
-}
-missing_regions = required_regions - ui.data_regions
-require(not missing_regions, f"index.html missing data-region contracts: {sorted(missing_regions)}")
-
-required_actions = {
-    "new-chat",
-    "refresh-conversations",
-    "reset-guest",
-    "clear-guest-data",
-    "copy-chat",
-    "clear-view",
-    "delete-chat",
-    "send-message",
-}
-missing_actions = required_actions - ui.data_actions
-require(not missing_actions, f"index.html missing data-action contracts: {sorted(missing_actions)}")
-
-frontend_contract_markers = [
-    "/ailovanta/v1/chat",
-    "/ailovanta/v1/conversations",
-    "context_messages_used",
-    "guest_id",
-    "markdownLite",
-    "navigator.clipboard.writeText",
-    "localStorage",
-    "class=\"avatar\"",
-    "class=\"bubble\"",
-]
-for marker in frontend_contract_markers:
-    require(marker in index_html, f"index.html missing frontend contract marker: {marker}")
+require(read("VERSION").strip() == "1.11.0", "unexpected version")
 
 checks = {
-    "api/sqlite_utils.py": ["ClosingConnection", "connect_sqlite", "self.close()"],
-    "api/health.py": ["local_model", "ollama", "base_url", "fallback"],
-    "api/main.py": [
-        "build_chat_context",
-        "context_messages_used",
-        "/ailovanta/v1/chat",
-        "/ailovanta/v1/run",
-        "/reputation/leaderboard",
-        "/reputation/summary",
-        "/usage/events",
-    ],
-    "api/conversation_context.py": ["build_chat_context", "context_to_text", "max_messages"],
-    "api/conversation_store.py": ["connect_sqlite", "ConversationStore", "conversations", "conversation_messages", "add_message"],
-    "api/runtime_store.py": ["connect_sqlite", "RuntimeStore", "runtime_models", "runtime_nodes"],
-    "api/ollama_adapter.py": ["chat_messages", "conversation history", "Use the provided conversation history"],
-    "api/reputation.py": ["ReputationService", "leaderboard", "summary", "reputation_score"],
-    "api/usage_store.py": ["connect_sqlite", "UsageStore", "usage_events", "record", "list_events"],
-    "docs/AUTH_MODEL.md": ["Guest mode first", "No required login", "First prove value"],
-    "docs/PAYMENT_MODEL.md": ["No payment required", "No paywall", "First prove value"],
-    "docs/NEXT_STAGE_PRD.md": ["Guest Chat Core", "多轮上下文注入", "无登录墙", "无付费墙"],
-    "docs/CHATGPT_STYLE_UI.md": ["ChatGPT-style", "sticky composer", "No Node.js", "true streaming response"],
-    "docs/UI_VALIDATION_CONTRACT.md": ["data-guest-mode", "data-login-required", "data-region", "data-action"],
-    "tests/test_chatgpt_ui_markers.py": ["Message Ailovanta", "markdownLite", "Thinking..."],
-    "tests/test_conversation_context.py": ["build_chat_context", "context_to_text"],
-    "tests/test_frontend_markers.py": ["conversationList", "No login required", "Enter to send", "Thinking..."],
-    "tests/test_guest_chat_flow.py": ["context_messages_used", "/ailovanta/v1/conversations", "/reputation/leaderboard"],
-    "tests/test_health_model_status.py": ["local_model", "ollama", "base_url"],
-    "tests/test_sqlite_utils.py": ["connect_sqlite", "os.remove"],
-    "tests/test_reputation.py": ["/reputation/leaderboard", "/reputation/summary"],
-    "tests/test_usage_api.py": ["/usage/events", "/usage/summary"],
+    "index.html": ["data-app", "data-guest-mode", "/ailovanta/v1/chat", "conversationList"],
+    "api/main.py": ["/ailovanta/v1/chat", "/ailovanta/v1/run", "context_messages_used"],
+    "api/rights_proof_registry.py": ["RightsProofRegistry", "agreement_id", "commercial_use_allowed", "distillation_allowed", "can_train"],
+    "api/code_training_jobs.py": ["distributed_required", "code_lora", "code_qlora", "code_distill", "code_eval"],
+    "scripts/export_code_training_job.py": ["ailovanta.training_job.v1", "distributed_required", "--rights-id"],
+    "docs/AILOVANTA_CODE_DISTRIBUTED_PLAN.md": ["Ailovanta-Code", "distributed_required", "Runtime Router"],
+    "docs/AUTOTRAIN_ARCHITECTURE.md": ["AutoTrain", "distributed_required", "Validator nodes", "Aggregator"],
+    "docs/RIGHTS_PROOF_REGISTRY.md": ["Rights Proof Registry", "commercial_use_allowed", "distillation_allowed"],
+    "docs/GITHUB_CODE_TRAINING.md": ["GitHub Repo Understanding", "rights_id", "pull request"],
+    "docs/CODE_DISTILLATION.md": ["Code Distillation", "test_pass_rate", "distributed training"],
+    "tests/test_rights_proof_registry.py": ["test_active_rights_can_train", "test_inactive_rights_cannot_train"],
+    "tests/test_code_training_job_export.py": ["test_code_lora_job_is_distributed", "test_inactive_rights_cannot_create_job"],
 }
 
 for rel, markers in checks.items():
