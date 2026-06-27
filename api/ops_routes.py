@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from api.admin_security import admin_token_header
 from api.migrations import MigrationRunner
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(admin_token_header)])
 runner = MigrationRunner()
 
 
