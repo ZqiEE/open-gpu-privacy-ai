@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from time import time
 from typing import Any
 from uuid import uuid4
@@ -26,10 +28,12 @@ def route_related(alert: dict[str, Any]) -> bool:
 
 
 class IncidentResponse:
-    def __init__(self, alerts: AlertSummary | None = None, backups: BackupStore | None = None, routes: RouteBook | None = None) -> None:
+    def __init__(self, alerts: AlertSummary | None = None, backups: BackupStore | None = None, routes: RouteBook | None = None, log_root: str | Path = "runtime_data/incidents") -> None:
         self.alerts = alerts or AlertSummary()
         self.backups = backups or BackupStore()
         self.routes = routes or RouteBook()
+        self.log_root = Path(log_root)
+        self.log_root.mkdir(parents=True, exist_ok=True)
 
     def plan(self, route_key: str = DEFAULT_ROUTE_KEY, verify_bytes: bool = False) -> dict[str, Any]:
         summary = self.alerts.collect(route_key=route_key, verify_bytes=verify_bytes)
@@ -63,4 +67,19 @@ class IncidentResponse:
                     results.append({"action": kind, "route": self.routes.disable(route_key, reason="incident:" + incident_id)})
             else:
                 results.append({"action": kind, "dry_run": dry_run, "reason": action.get("reason")})
-        return {"ok": plan.get("ok") or dry_run, "incident_id": incident_id, "dry_run": dry_run, "created_at": round(time(), 3), "plan": plan, "results": results}
+        payload = {"ok": plan.get("ok") or dry_run, "incident_id": incident_id, "dry_run": dry_run, "created_at": round(time(), 3), "plan": plan, "results": results}
+        return self._log(payload)
+
+    def list_logs(self) -> list[dict[str, Any]]:
+        items = []
+        for path in sorted(self.log_root.glob("*.json"), reverse=True):
+            try:
+                items.append(json.loads(path.read_text(encoding="utf-8")))
+            except Exception:
+                items.append({"log_id": path.stem, "ok": False, "reason": "incident_log_read_error"})
+        return items
+
+    def _log(self, payload: dict[str, Any]) -> dict[str, Any]:
+        path = self.log_root / f"{payload['incident_id']}.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return payload
