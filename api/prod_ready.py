@@ -10,7 +10,7 @@ from api.readiness_audit import ReadinessAudit
 from api.route_health import RouteHealth
 
 
-def check_production_ready(result_path: str | Path | None = None, route_key: str = "owned-chat/default") -> dict[str, Any]:
+def check_production_ready(result_path: str | Path | None = None, route_key: str = "owned-chat/default", verify_bytes: bool = False) -> dict[str, Any]:
     cfg = load_config()
     blockers: list[str] = []
     warnings: list[str] = []
@@ -41,7 +41,7 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
         anchor_ok = False
         blockers.append("anchor_adapter_error:" + exc.__class__.__name__)
 
-    readiness = ReadinessAudit().production_check()
+    readiness = ReadinessAudit().production_check(verify_bytes=verify_bytes)
     if not readiness.get("ok"):
         blockers.extend("readiness:" + str(item) for item in readiness.get("blockers", []))
     warnings.extend("readiness:" + str(item) for item in readiness.get("warnings", []))
@@ -57,6 +57,7 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
         "stage": "production_ready" if not blockers else "blocked",
         "blockers": sorted(set(blockers)),
         "warnings": sorted(set(warnings)),
+        "verify_bytes": verify_bytes,
         "config": cfg.to_dict(),
         "env": redacted_env(),
         "route_health": route,
