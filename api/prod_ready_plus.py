@@ -7,6 +7,7 @@ from typing import Any
 from api.backup_store import BackupStore
 from api.prod_ready import check_production_ready
 from api.runtime_readiness import RuntimeReadiness
+from api.security_review import run_security_review
 
 
 def enabled(name: str) -> bool:
@@ -43,6 +44,7 @@ def check_production_ready_plus(result_path: str | Path | None = None, route_key
     runtime_route = RuntimeReadiness().check_route(route_key)
     abuse = check_abuse_controls()
     backups = check_backup_controls()
+    review = run_security_review()
     blockers = list(base.get("blockers", []))
     warnings = list(base.get("warnings", []))
     if not runtime_route.get("ok"):
@@ -51,5 +53,8 @@ def check_production_ready_plus(result_path: str | Path | None = None, route_key
         blockers.extend("abuse:" + str(item) for item in abuse.get("blockers", []))
     if not backups.get("ok"):
         blockers.extend("backup:" + str(item) for item in backups.get("blockers", []))
+    if not review.get("ok"):
+        blockers.extend("review:" + str(item) for item in review.get("blockers", []))
     warnings.extend("abuse:" + str(item) for item in abuse.get("warnings", []))
-    return {**base, "ok": not blockers, "stage": "production_ready" if not blockers else "blocked", "blockers": sorted(set(blockers)), "warnings": sorted(set(warnings)), "runtime_route": runtime_route, "abuse_controls": abuse, "backup_controls": backups}
+    warnings.extend("review:" + str(item) for item in review.get("warnings", []))
+    return {**base, "ok": not blockers, "stage": "production_ready" if not blockers else "blocked", "blockers": sorted(set(blockers)), "warnings": sorted(set(warnings)), "runtime_route": runtime_route, "abuse_controls": abuse, "backup_controls": backups, "release_review": review}
