@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from api.adapter_merge_routes import router as adapter_router
+from api.admin_guard_middleware import install_admin_guard
 from api.artifact_routes import router as artifact_router
 from api.artifact_version_routes import router as artifact_version_router
 from api.benchmark_routes import router as benchmark_router
@@ -24,6 +25,8 @@ from api.runtime_forward_routes import router as fw_router
 from api.scheduler_routes import router as scheduler_router
 from api.strong_benchmark_routes import router as strong_benchmark_router
 from api.main import app
+
+install_admin_guard(app)
 
 app.include_router(code_chat_router)
 app.include_router(code_result_router)
