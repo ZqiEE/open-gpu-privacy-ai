@@ -18,4 +18,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "api.main_runtime_ready:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.main_release_ready:app", "--host", "0.0.0.0", "--port", "8000"]
