@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from api.parcel_store import ParcelStore
-from api.wio import task_envelope, verify_result
+from api.wio import task_envelope, verify_result, verify_task_envelope
 
 router = APIRouter(prefix="/wio", tags=["wio"])
 store = ParcelStore()
@@ -49,20 +49,24 @@ def claim_task(task_id: str, node_id: str) -> dict[str, Any]:
     item = store.get_inbox(task_id)
     if not item:
         raise HTTPException(status_code=404, detail="task not found")
+    task_check = verify_task_envelope(item)
+    if not task_check.get("ok"):
+        raise HTTPException(status_code=400, detail=task_check)
     task_node = item.get("node_id") or item.get("task", {}).get("node_id")
     if task_node and task_node != node_id:
         raise HTTPException(status_code=403, detail="task belongs to another node")
     updated = store.update_inbox(task_id, {"status": "claimed", "claimed_by": node_id})
-    return {"ok": True, "task": updated}
+    return {"ok": True, "task": updated, "task_check": task_check}
 
 
 @router.post("/result")
 def submit_result(body: ResultBody) -> dict[str, Any]:
-    checked = verify_result(body.payload)
+    task_id = body.payload.get("task_id")
+    task_item = store.get_inbox(str(task_id)) if task_id else None
+    checked = verify_result(body.payload, task_item)
     if body.require_valid and not checked.get("ok"):
         raise HTTPException(status_code=400, detail=checked)
     item = store.put_outbox(body.payload)
-    task_id = body.payload.get("task_id")
     if task_id:
         store.update_inbox(str(task_id), {"status": "done", "result_id": item.get("id")})
     return {"ok": True, "checked": checked, "item": item}

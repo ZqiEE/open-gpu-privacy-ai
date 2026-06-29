@@ -12,9 +12,19 @@ def main() -> int:
     parser.add_argument("--core-path", default=None)
     parser.add_argument("--work-dir", default="runtime_data/foundation_pipeline")
     parser.add_argument("--output", default="runtime_data/foundation_pipeline/pipeline_result.json")
+    parser.add_argument("--execute-checkpoints", action="store_true")
+    parser.add_argument("--checkpoint-output-root", default=None)
+    parser.add_argument("--training-command", default=None)
     args = parser.parse_args()
 
-    result = run_foundation_pipeline(args.job_id, core_path=args.core_path, work_dir=args.work_dir)
+    result = run_foundation_pipeline(
+        args.job_id,
+        core_path=args.core_path,
+        work_dir=args.work_dir,
+        execute_checkpoints=args.execute_checkpoints,
+        checkpoint_output_root=args.checkpoint_output_root,
+        training_command=args.training_command,
+    )
     write_pipeline_result(result, args.output)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

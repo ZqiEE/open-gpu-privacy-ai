@@ -4,7 +4,9 @@ Ailovanta should not start with random whole-web scraping. The useful path is:
 
 ```text
 trusted / allowed code sources
--> code corpus builder
+-> GitHub broad discovery
+-> instruction-first corpus builder
+-> raw code foundation corpus builder
 -> shard jobs
 -> verified deltas
 -> merged code checkpoint
@@ -25,6 +27,12 @@ repository repair tasks
 ```
 
 That means Ailovanta can improve through measurable feedback instead of only subjective chat scoring.
+
+See `docs/AILOVANTA_CODE_TRAINING_SYSTEM.md` for the full three-layer algorithm:
+
+```text
+language foundation -> engineering structure -> task execution
+```
 
 ## Source policy
 
@@ -98,6 +106,65 @@ opt-out / removal list
 ```
 
 The first production crawler should only add sources that pass the manifest policy. The crawler should write source metadata beside every training record.
+
+## Authorized broad GitHub ingestion
+
+For owner-controlled or explicitly authorized code, Ailovanta can use a broad ingestion mode:
+
+```text
+license_policy = private_owner_unrestricted
+license_policy = authorized_unrestricted
+license_policy = shareholder_authorized
+license_policy = explicit_permission
+license_policy = internal
+```
+
+These policies allow ingestion even when public license metadata is unknown, because the source manifest itself is the authorization record. This is intended for code the operator owns, controls, or has explicit permission to use.
+
+Public/shared model builds should still use `public_safe` or `public_permissive` when the source is not operator-authorized.
+
+Run the full authorized ingest path:
+
+```bash
+python scripts/ingest_github_code.py \
+  --sources runtime_data/github_code_sources.json \
+  --corpus-output runtime_data/code_corpus_github.jsonl \
+  --rights-path runtime_data/rights_proofs.json \
+  --jobs-path runtime_data/code_training_jobs.json \
+  --corpus-mode instructions \
+  --create-job
+```
+
+The ingest path performs:
+
+```text
+fetch or use local repo
+secret scan
+large/vendor directory filtering
+instruction-first JSONL write by default
+raw code JSONL write when --corpus-mode code is used
+rights proof registration
+optional distributed code training job creation
+```
+
+Even in broad authorized mode, secrets, tokens, private keys, build outputs, vendored dependencies, and unreadable files are filtered out before training records are written.
+
+For low-level syntax, spelling, AST shape, and API usage training, run:
+
+```bash
+python scripts/ingest_github_code.py \
+  --sources runtime_data/github_code_sources.json \
+  --corpus-mode code
+```
+
+For combined instruction and raw code records:
+
+```bash
+python scripts/ingest_github_code.py \
+  --sources runtime_data/github_code_sources.json \
+  --corpus-mode mixed \
+  --create-job
+```
 
 ## Evaluation first
 

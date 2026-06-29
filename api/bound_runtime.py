@@ -73,13 +73,13 @@ def build_checkpoint_bound_answer(prompt: str, binding: dict[str, Any], checkpoi
     eval_loss = checkpoint.get("eval_loss")
     backend = checkpoint.get("backend") or binding.get("backend_kind")
     return (
-        "已加载该模型绑定的本地 checkpoint 元数据。"
-        f"\n模型：{binding.get('model_key')}"
-        f"\n后端：{backend}"
-        f"\nArtifact：{binding.get('artifact_hash')}"
-        f"\nToken count：{token_count}"
-        f"\nTrain loss：{train_loss}"
-        f"\nEval loss：{eval_loss}"
-        "\n当前 checkpoint 不是完整可对话权重大模型时，只返回绑定与训练产物状态，不伪装成真实生成模型。"
-        f"\n用户输入：{prompt}"
+        "Loaded the local checkpoint metadata bound to this model runtime."
+        f"\nModel: {binding.get('model_key')}"
+        f"\nBackend: {backend}"
+        f"\nArtifact: {binding.get('artifact_hash')}"
+        f"\nToken count: {token_count}"
+        f"\nTrain loss: {train_loss}"
+        f"\nEval loss: {eval_loss}"
+        "\nThis checkpoint is not a full conversational weight bundle, so the worker returns binding and training artifact status instead of pretending to generate with a real model."
+        f"\nUser input: {prompt}"
     )

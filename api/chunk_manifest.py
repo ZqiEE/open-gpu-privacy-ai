@@ -35,6 +35,12 @@ def sha256_bytes(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
+def manifest_hash(manifest: dict[str, Any]) -> str:
+    body = {key: value for key, value in manifest.items() if key != "manifest_hash"}
+    raw = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return sha256_bytes(raw)
+
+
 def build_manifest(path: str | Path, chunk_size: int = 8 * 1024 * 1024, sources: list[str] | None = None, min_replicas: int = 3) -> dict[str, Any]:
     artifact_path = Path(path)
     data_hash = hashlib.sha256()
@@ -54,7 +60,9 @@ def build_manifest(path: str | Path, chunk_size: int = 8 * 1024 * 1024, sources:
         chunks=chunks,
         replica_policy={"min_replicas": min_replicas, "source_types": ["node_cache", "regional_mirror", "content_addressed", "official_seed_fallback"]},
     )
-    return manifest.to_dict()
+    payload = manifest.to_dict()
+    payload["manifest_hash"] = manifest_hash(payload)
+    return payload
 
 
 def write_manifest(path: str | Path, output: str | Path) -> dict[str, Any]:

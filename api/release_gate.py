@@ -24,7 +24,7 @@ def run_cmd(cmd: list[str]) -> dict[str, Any]:
     }
 
 
-def release_gate(core_path: str = "../ailovanta-core", result_path: str | None = None, route_key: str = "owned-chat/default", run_tests: bool = True, verify_bytes: bool = False) -> dict[str, Any]:
+def release_gate(core_path: str = "../ailovanta-core", result_path: str | None = None, route_key: str = "owned-chat/default", run_tests: bool = True, verify_bytes: bool = False, verify_distribution: bool = False, verify_chain: bool = False) -> dict[str, Any]:
     checks: dict[str, Any] = {}
     blockers: list[str] = []
 
@@ -42,11 +42,11 @@ def release_gate(core_path: str = "../ailovanta-core", result_path: str | None =
         blockers.append("preflight_failed")
 
     result_exists = bool(result_path and Path(result_path).exists())
-    checks["prod_ready_plus"] = check_production_ready_plus(result_path=result_path if result_exists else None, route_key=route_key, verify_bytes=verify_bytes)
+    checks["prod_ready_plus"] = check_production_ready_plus(result_path=result_path if result_exists else None, route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
     if not checks["prod_ready_plus"].get("ok"):
         blockers.extend("prod_ready_plus:" + str(item) for item in checks["prod_ready_plus"].get("blockers", []))
 
-    checks["route_health"] = RouteHealth().check(route_key, verify_artifact=verify_bytes)
+    checks["route_health"] = RouteHealth().check(route_key, verify_artifact=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
     if not checks["route_health"].get("ok"):
         blockers.extend("route_health:" + str(item) for item in checks["route_health"].get("blockers", []))
 
@@ -54,13 +54,13 @@ def release_gate(core_path: str = "../ailovanta-core", result_path: str | None =
     if not checks["runtime_route"].get("ok"):
         blockers.append("runtime_route:" + str(checks["runtime_route"].get("reason")))
 
-    checks["alerts"] = AlertSummary().collect(route_key=route_key, verify_bytes=verify_bytes)
+    checks["alerts"] = AlertSummary().collect(route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
     if not checks["alerts"].get("ok"):
         for item in checks["alerts"].get("alerts", []):
             if item.get("severity") in {"critical", "high"}:
                 blockers.append("alert:" + str(item.get("source")) + ":" + str(item.get("message")))
 
-    checks["incident_dry_run"] = IncidentResponse().execute(route_key=route_key, verify_bytes=verify_bytes, dry_run=True)
+    checks["incident_dry_run"] = IncidentResponse().execute(route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain, dry_run=True)
     if not checks["incident_dry_run"].get("ok"):
         blockers.append("incident_dry_run_failed")
 

@@ -10,7 +10,7 @@ from api.readiness_audit import ReadinessAudit
 from api.route_health import RouteHealth
 
 
-def check_production_ready(result_path: str | Path | None = None, route_key: str = "owned-chat/default", verify_bytes: bool = False) -> dict[str, Any]:
+def check_production_ready(result_path: str | Path | None = None, route_key: str = "owned-chat/default", verify_bytes: bool = False, verify_distribution: bool = False, verify_chain: bool = False) -> dict[str, Any]:
     cfg = load_config()
     blockers: list[str] = []
     warnings: list[str] = []
@@ -24,7 +24,7 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
     if cfg.model_backend == "local" and cfg.env != "local":
         blockers.append("model_backend_local_in_production")
 
-    route = RouteHealth().check(route_key, verify_artifact=verify_bytes)
+    route = RouteHealth().check(route_key, verify_artifact=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
     if not route.get("ok"):
         blockers.extend("route:" + str(item) for item in route.get("blockers", []))
 
@@ -58,6 +58,8 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
         "blockers": sorted(set(blockers)),
         "warnings": sorted(set(warnings)),
         "verify_bytes": verify_bytes,
+        "verify_distribution": verify_distribution,
+        "verify_chain": verify_chain,
         "config": cfg.to_dict(),
         "env": redacted_env(),
         "route_health": route,

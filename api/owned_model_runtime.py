@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from typing import Any
 from typing import Literal
 
 from api.artifact_binding import ArtifactBindingStore
@@ -29,6 +31,7 @@ class OwnedModelResult:
     version: str
     runtime_route: dict
     policy_mode: PolicyMode
+    worker_result: dict[str, Any]
 
 
 class OwnedModelUnavailable(RuntimeError):
@@ -39,7 +42,7 @@ class OwnedModelRuntime:
     def __init__(self, runtime_registry, worker_client: WorkerInferenceClient | None = None, binding_store: ArtifactBindingStore | None = None) -> None:
         self.runtime_registry = runtime_registry
         self.worker_client = worker_client or WorkerInferenceClient()
-        self.binding_store = binding_store or ArtifactBindingStore()
+        self.binding_store = binding_store or ArtifactBindingStore(os.getenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", "runtime_data/artifact_bindings.sqlite3"))
 
     def route(self, request: OwnedModelRequest) -> dict:
         from api.runtime_router import RuntimeRequest
@@ -108,4 +111,5 @@ class OwnedModelRuntime:
             version=request.version,
             runtime_route=route_with_binding,
             policy_mode=request.policy_mode,
+            worker_result=worker_result.raw,
         )

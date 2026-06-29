@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from api.main import app, runtime_registry, store
+from api.node_trust import NodeTrustStore
 from api.storage import SchedulerStore
 
 
@@ -106,6 +107,10 @@ def test_training_job_and_model_version() -> None:
             assert training_jobs.status_code == 200
             assert any(item["id"] == job_id for item in training_jobs.json()["jobs"])
 
+            exported = client.post(f"/training/jobs/{job_id}/export")
+            assert exported.status_code == 200
+            assert exported.json()["export"]["payload"]["schema_version"] == "ailovanta.training_job.v1"
+
             model = client.post(
                 "/models/versions",
                 json={
@@ -120,7 +125,11 @@ def test_training_job_and_model_version() -> None:
             store.path = original_path
 
 
-def test_runtime_router_prefers_warm_verified_runtime() -> None:
+def test_runtime_router_prefers_warm_verified_runtime(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
+    trust = NodeTrustStore()
+    trust.register("node-cold", "secret-cold", trust_score=0.95)
+    trust.register("node-warm", "secret-warm", trust_score=0.9)
     runtime_registry.clear()
     client = TestClient(app)
 
@@ -200,7 +209,11 @@ def test_runtime_router_prefers_warm_verified_runtime() -> None:
     assert assignment["model_manifest_hash"] == "sha256:model7b"
 
 
-def test_private_runtime_routes_only_to_trusted_pool() -> None:
+def test_private_runtime_routes_only_to_trusted_pool(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
+    trust = NodeTrustStore()
+    trust.register("node-public-large", "secret-public", trust_score=0.99)
+    trust.register("node-trusted", "secret-trusted", trust_score=0.92)
     runtime_registry.clear()
     client = TestClient(app)
 

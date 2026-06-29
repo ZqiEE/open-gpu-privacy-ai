@@ -13,7 +13,9 @@ python scripts/check_release.py \
   --core-path ../ailovanta-core \
   --result runtime_data/local_loop/foundation_result.json \
   --route-key owned-chat/default \
-  --verify-bytes
+  --verify-bytes \
+  --verify-distribution \
+  --verify-chain
 ```
 
 Run through API:
@@ -25,7 +27,9 @@ POST /ops/release/gate
   "result_path": "runtime_data/local_loop/foundation_result.json",
   "route_key": "owned-chat/default",
   "run_tests": false,
-  "verify_bytes": true
+  "verify_bytes": true,
+  "verify_distribution": true,
+  "verify_chain": true
 }
 ```
 
@@ -48,5 +52,9 @@ runtime_route
 alert summary
 incident dry-run
 ```
+
+`verify_bytes` checks artifact byte integrity. `verify_distribution` checks the owned model's distributed storage evidence: `artifact_distribution`, chunk manifest hash, replica book entry, and replica health.
+
+`verify_chain` checks the owned model's promotion proof: chain registry event, event hash, anchor status, chain transaction/anchor URI, and anchor receipt. It does not put model bytes on-chain.
 
 Do not deploy publicly unless the stage is `release_pass`.

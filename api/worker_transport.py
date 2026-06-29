@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from api.runtime_forwarder import RuntimeEndpointStore
+
 
 class WorkerInferenceUnavailable(RuntimeError):
     pass
@@ -33,11 +35,13 @@ class WorkerInferenceResult:
 
 
 class WorkerInferenceClient:
-    def __init__(self, timeout_seconds: float | None = None) -> None:
+    def __init__(self, timeout_seconds: float | None = None, endpoint_store: RuntimeEndpointStore | None = None, transport: httpx.BaseTransport | None = None) -> None:
         self.timeout_seconds = timeout_seconds or float(os.getenv("AILOVANTA_WORKER_TIMEOUT_SECONDS", "60"))
+        self.endpoint_store = endpoint_store or RuntimeEndpointStore(os.getenv("AILOVANTA_RUNTIME_ENDPOINTS_PATH", "runtime_data/runtime_endpoints.json"))
+        self.transport = transport
 
     def infer(self, request: WorkerInferenceRequest) -> WorkerInferenceResult:
-        worker_url = self.worker_url(request.runtime_id)
+        worker_url = self.worker_url(request.runtime_id, self.endpoint_store)
         payload = {
             "prompt": request.prompt,
             "model_id": request.model_id,
@@ -48,10 +52,19 @@ class WorkerInferenceClient:
             "model_manifest_hash": request.model_manifest_hash,
         }
         try:
-            with httpx.Client(timeout=self.timeout_seconds) as client:
-                response = client.post(f"{worker_url}/v1/owned/infer", json=payload)
+            if worker_url == "inprocess://ailovanta-worker":
+                from fastapi.testclient import TestClient
+
+                from api.worker import app as worker_app
+
+                response = TestClient(worker_app).post("/v1/owned/infer", json=payload)
                 response.raise_for_status()
                 data = response.json()
+            else:
+                with httpx.Client(timeout=self.timeout_seconds, transport=self.transport) as client:
+                    response = client.post(f"{worker_url}/v1/owned/infer", json=payload)
+                    response.raise_for_status()
+                    data = response.json()
         except Exception as exc:
             raise WorkerInferenceUnavailable(str(exc)) from exc
 
@@ -68,7 +81,11 @@ class WorkerInferenceClient:
         )
 
     @staticmethod
-    def worker_url(runtime_id: str) -> str:
+    def worker_url(runtime_id: str, endpoint_store: RuntimeEndpointStore | None = None) -> str:
+        store = endpoint_store or RuntimeEndpointStore(os.getenv("AILOVANTA_RUNTIME_ENDPOINTS_PATH", "runtime_data/runtime_endpoints.json"))
+        endpoint = store.get(runtime_id)
+        if endpoint and endpoint.get("url"):
+            return str(endpoint["url"]).rstrip("/")
         key = "AILOVANTA_WORKER_URL_" + runtime_id.upper().replace("-", "_")
         specific = os.getenv(key)
         if specific:

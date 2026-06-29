@@ -72,9 +72,43 @@ worker receives task envelope
 -> worker submits checkpoint_uri + checkpoint_hash + node_proof
 -> verifier checks proof and digest
 -> promotion gate emits receipt
+-> import builds chunk manifest and replica book entry
+-> replica repair planner creates storage repair tasks for weak chunks
 -> anchor adapter anchors receipt hash
 -> runtime node loads by artifact URI / manifest
 ```
+
+## Replica repair loop
+
+The distribution gate can block a route when the replica book reports under-replicated chunks. The repair loop turns that blocker into storage work:
+
+```text
+replica_book.json
+-> scan under-replicated chunks
+-> create storage_replica_repair tasks
+-> storage node copies chunk to target location
+-> task completion adds the copy to replica_book
+-> route health distribution gate can pass
+```
+
+CLI:
+
+```bash
+python scripts/replica_repair.py plan --target-node storage-2
+python scripts/replica_repair.py list --status queued
+python scripts/replica_repair.py complete <task_id>
+```
+
+API:
+
+```text
+POST /replicas/repair/plan
+GET  /replicas/repair/tasks
+POST /replicas/repair/tasks/{task_id}/assign
+POST /replicas/repair/tasks/{task_id}/complete
+```
+
+Current local repair completion records that a copy exists at a node URI. Production workers must perform the actual artifact transfer before submitting completion.
 
 ## Server role
 

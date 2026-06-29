@@ -13,8 +13,10 @@ def main() -> int:
     parser.add_argument("--route-key", default="owned-chat/default")
     parser.add_argument("--run-tests", action="store_true")
     parser.add_argument("--verify-bytes", action="store_true")
+    parser.add_argument("--verify-distribution", action="store_true")
+    parser.add_argument("--verify-chain", action="store_true")
     args = parser.parse_args()
-    data = release_gate(core_path=args.core_path, result_path=args.result, route_key=args.route_key, run_tests=args.run_tests, verify_bytes=args.verify_bytes)
+    data = release_gate(core_path=args.core_path, result_path=args.result, route_key=args.route_key, run_tests=args.run_tests, verify_bytes=args.verify_bytes, verify_distribution=args.verify_distribution, verify_chain=args.verify_chain)
     print(json.dumps(data, ensure_ascii=False, indent=2))
     return 0 if data.get("ok") else 1
 

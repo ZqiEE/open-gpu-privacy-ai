@@ -41,8 +41,8 @@ def check_backup_controls() -> dict[str, Any]:
     return {"ok": True, "blockers": [], "status": status}
 
 
-def check_production_ready_plus(result_path: str | Path | None = None, route_key: str = "owned-chat/default", verify_bytes: bool = False) -> dict[str, Any]:
-    base = check_production_ready(result_path=result_path, route_key=route_key, verify_bytes=verify_bytes)
+def check_production_ready_plus(result_path: str | Path | None = None, route_key: str = "owned-chat/default", verify_bytes: bool = False, verify_distribution: bool = False, verify_chain: bool = False) -> dict[str, Any]:
+    base = check_production_ready(result_path=result_path, route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
     runtime_route = RuntimeReadiness().check_route(route_key)
     default_chat = check_owned_chat_default(route_key)
     result_guard = check_result_guard()

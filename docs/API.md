@@ -28,6 +28,7 @@ GET /ready
 GET /network/status
 GET /verification/status
 GET /dashboard/summary
+GET /dashboard/owned-runtime
 GET /runtime/status
 ```
 
@@ -205,6 +206,8 @@ If Ollama is not running, the API returns a safe local fallback response instead
 ```text
 POST /training/jobs
 GET  /training/jobs
+POST /training/jobs/{job_id}/export
+POST /training/pipeline/run
 POST /models/versions
 GET  /models/versions
 ```

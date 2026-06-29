@@ -12,6 +12,7 @@ ALLOWED_JOB_TYPES = {
     "verification",
     "lora_micro",
     "model_shard",
+    "code_instruction_eval",
 }
 
 

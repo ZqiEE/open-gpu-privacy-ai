@@ -23,7 +23,28 @@ Payload:
 }
 ```
 
-Response contains a worker task envelope.
+Response contains a signed worker task envelope. The task includes:
+
+```json
+{
+  "task_proof": {
+    "schema_version": "ailovanta.task_proof.v1",
+    "issuer": "gateway",
+    "task_hash": "sha256:...",
+    "signature": "sha256:..."
+  }
+}
+```
+
+Workers should reject tasks whose `task_proof` does not verify.
+
+## Claim signed task
+
+```text
+POST /wio/tasks/{task_id}/claim?node_id=node-1
+```
+
+Claim checks the task signature before marking it claimed. A tampered task envelope is rejected.
 
 ## Submit signed result
 
@@ -51,7 +72,7 @@ Payload:
 }
 ```
 
-The result is verified through node proof before being accepted into outbox.
+The result is verified through node proof and matched against the signed task before being accepted into outbox.
 
 ## Local helper modules
 

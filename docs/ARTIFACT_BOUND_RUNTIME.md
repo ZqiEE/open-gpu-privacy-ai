@@ -27,9 +27,15 @@ transformers-causal-lm loads a local Transformers model directory
 
 ```text
 1. artifact-bound runtime
-2. configured model backend client
-3. Ollama local runtime fallback
+2. fail closed when no active binding exists
+3. optional bootstrap fallback only when AILOVANTA_WORKER_ALLOW_BOOTSTRAP_FALLBACK=true
 ```
+
+The worker is strict by default. `/v1/owned/infer` must resolve an active or candidate artifact binding for `model_id + version`.
+
+The request `model_manifest_hash` must match the binding `runtime_manifest_hash`. A mismatch returns `409` with `reason: model_manifest_hash_mismatch`.
+
+When no binding exists, the worker returns `503` with `reason: missing_artifact_binding` instead of silently using Ollama. This keeps owned-runtime responses tied to imported training artifacts and prevents a bootstrap runtime from being presented as a verified owned model.
 
 ## Backend ref import rule
 
@@ -111,4 +117,4 @@ A real generative path requires a binding whose `backend_kind` is `transformers-
 
 ## Meaning
 
-Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import/check mark unreachable local refs and runtime manifests as unavailable.
+Owned chat can now be artifact-aware and fail closed. It calls a worker only after route selection, and the worker must prove the selected runtime manifest is the one bound to the local artifact. Rollback removes bad bindings from the active path, and import/check mark unreachable local refs and runtime manifests as unavailable.

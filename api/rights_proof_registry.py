@@ -48,6 +48,12 @@ class RightsProofRegistry:
         rights_id = str(item.get("rights_id") or "").strip()
         if not rights_id:
             raise RightsProofError("rights_id is required")
+        agreement_id = str(item.get("agreement_id") or "").strip()
+        if not agreement_id:
+            raise RightsProofError("agreement_id is required")
+        agreement_uri = str(item.get("agreement_uri") or "").strip()
+        if not agreement_uri:
+            raise RightsProofError("agreement_uri is required")
 
         allowed_uses = set(item.get("allowed_uses") or [])
         unknown_uses = allowed_uses - ALLOWED_USES

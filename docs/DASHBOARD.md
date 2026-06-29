@@ -22,6 +22,7 @@ http://127.0.0.1:8000
 GET /dashboard/summary
 GET /dashboard/jobs
 GET /dashboard/models
+GET /dashboard/owned-runtime
 ```
 
 ## What it shows
@@ -36,6 +37,25 @@ GET /dashboard/models
 - model version count
 - recent jobs
 - model versions
+- owned runtime route status
+- worker validation receipt pass rate
+- latest worker validation blockers
+- worker validation reputation events
+
+## Owned runtime audit view
+
+`GET /dashboard/owned-runtime` returns the audit chain for owned-model serving:
+
+```text
+runtime models and online runtimes
+recent runtime route assignments
+latest worker validation receipts
+worker validation pass rate
+reputation events attached to validated worker results
+blockers that prevent owned runtime readiness
+```
+
+This endpoint is intended for local testnet and ops visibility. It makes the route -> worker -> validation -> reputation chain inspectable without manually querying each subsystem.
 
 ## Run flow
 

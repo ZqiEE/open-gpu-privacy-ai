@@ -19,8 +19,12 @@ runtime router
 runtime store
 node admission rules
 worker IO task/result envelopes
+signed worker task envelopes
 node proof / trust registry
 artifact chunk manifest
+artifact-bound worker runtime
+worker result validation receipt
+owned runtime dashboard audit
 route book
 route health
 rollback
@@ -44,9 +48,13 @@ Do not keep adding broad features before this passes:
 8. Submit one worker result.
 9. Proof / verification path records the result.
 10. Build one artifact chunk manifest.
+11. Register an artifact runtime binding.
+12. Run owned chat through an artifact-bound worker.
+13. Record a worker validation receipt.
+14. Show route, validation, and reputation in owned runtime dashboard.
 ```
 
-When all ten pass, v0 testnet scaffold is complete.
+When all fourteen pass, v0 testnet scaffold is complete.
 
 ## Next code work only after real run
 
@@ -58,7 +66,6 @@ Allowed next work:
 validator mesh
 storage replica tracking
 reward / reputation update loop
-signed task envelopes
 node dashboard
 ```
 
