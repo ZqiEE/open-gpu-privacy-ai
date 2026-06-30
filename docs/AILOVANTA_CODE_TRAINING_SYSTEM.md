@@ -188,6 +188,9 @@ scripts/run_verified_code_foundation.py
 api/autonomous_code_training_loop.py
   autonomous code learning controller: discover/fetch/ingest/build tasks/run verification/export samples/train
 
+api/code_failure_samples.py
+  converts failed executable task runs into negative preference, repair, and reward-signal records
+
 scripts/run_autonomous_code_training_loop.py
   one-command autonomous Ailovanta-Code loop
 
@@ -275,6 +278,30 @@ sample hash
 
 Only passing reports become samples. Failed reports stay useful for diagnostics and RL negative signals, but they are not exported as positive SFT/distillation examples by default.
 
+Export failed task reports as negative/repair signals:
+
+```bash
+python scripts/export_failed_code_samples.py \
+  runtime_data/code_task_reports.json \
+  --output runtime_data/failed_code_samples.json
+```
+
+Failed samples contain:
+
+```text
+instruction
+context files
+candidate files that failed
+stdout/stderr failure evidence
+repair_prompt
+training_use.positive_sft = false
+training_use.negative_preference = true
+training_use.repair_task = true
+training_use.reward_signal = true
+```
+
+These records are for repair training, preference learning, ReST/RL reward signals, and diagnostics. They must not be mixed into positive SFT data.
+
 Run verified samples through the owned foundation pipeline:
 
 ```bash
@@ -329,6 +356,7 @@ source manifest / GitHub discovery
 -> executable test/spec tasks
 -> sandboxed pytest/compile verification
 -> verified_code_samples.json
+-> failed_code_samples.json for negative/repair/reward signals
 -> foundation job
 -> core checkpoint execution
 -> public foundation import/runtime binding

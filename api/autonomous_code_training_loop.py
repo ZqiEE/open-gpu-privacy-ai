@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from api.code_task_builder import load_instruction_records, task_from_instruction_record
+from api.code_failure_samples import export_failures_from_reports
 from api.foundation_pipeline import run_foundation_pipeline
 from api.github_code_ingest import ingest_sources
 from api.verified_code_foundation import create_job_from_verified_code_export
@@ -73,6 +74,8 @@ class AutonomousCodeTrainingLoop:
 
         verified_path = run_dir / "verified_code_samples.json"
         verified = export_samples_from_reports(report_items, verified_path)
+        failures_path = run_dir / "failed_code_samples.json"
+        failures = export_failures_from_reports(report_items, failures_path)
         foundation = None
         stage = "verified_samples_ready"
         ok = bool(verified.get("count"))
@@ -112,6 +115,7 @@ class AutonomousCodeTrainingLoop:
                 "tasks": str(task_path),
                 "reports": str(reports_path),
                 "verified_samples": str(verified_path),
+                "failed_samples": str(failures_path),
             },
             "discovery": discovery,
             "ingest": self._compact_ingest(ingest),
@@ -122,6 +126,7 @@ class AutonomousCodeTrainingLoop:
                 "failed": len([item for item in report_items if not item["report"].get("passed")]),
             },
             "verified": {key: value for key, value in verified.items() if key != "samples"},
+            "failures": {key: value for key, value in failures.items() if key != "samples"},
             "foundation": foundation,
             "created_at": round(time(), 3),
         }
