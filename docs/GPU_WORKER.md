@@ -37,19 +37,25 @@ If the API chose a non-default port, pass it explicitly:
 .\start_training_worker_windows.bat -Server http://127.0.0.1:8001
 ```
 
-Seed a real local training job:
+Automatically discover sources and queue a real local training job:
 
 ```powershell
-.\seed_training_job_windows.bat
+.\start_auto_training_windows.bat
 ```
 
 If the API is on port 8001:
 
 ```powershell
-.\seed_training_job_windows.bat -Server http://127.0.0.1:8001
+.\start_auto_training_windows.bat -Server http://127.0.0.1:8001
 ```
 
-The seeded job writes a JSONL dataset into `runtime_data/local_training_seed.jsonl` and queues a `lora_micro` job. The worker then trains a real local artifact:
+Run it as a continuous loop:
+
+```powershell
+.\start_auto_training_windows.bat -Server http://127.0.0.1:8001 -Loop
+```
+
+The automatic job discovers GitHub sources, writes/updates `runtime_data/github_code_sources.json`, fetches a bounded source set, builds `runtime_data/autonomous_source_training/autonomous_training_dataset.jsonl`, and queues a `lora_micro` job. The worker then trains a real local artifact:
 
 ```text
 runtime_data/models/<job-name>-<version>/ngram_model.json
@@ -57,6 +63,8 @@ runtime_data/models/<job-name>-<version>/output.json
 ```
 
 If Transformers/CUDA/PEFT are installed and the job requests them, `api.model_job` can run a Transformers/LoRA path. Otherwise it still performs real local lightweight n-gram training over the dataset instead of writing a fake success file.
+
+The old `seed_training_job_windows.bat` command is only a deterministic smoke-test helper. Use `start_auto_training_windows.bat` for the real autonomous path.
 
 After a local training artifact is produced, the worker binds it to `ailovanta-owned:candidate` so owned chat can route through the latest training artifact instead of the bootstrap checkpoint. If you already trained before this binding step existed, bind the newest local artifact manually:
 

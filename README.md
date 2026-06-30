@@ -226,10 +226,16 @@ Run your machine as a local training worker in a second terminal:
 .\start_training_worker_windows.bat
 ```
 
-Queue a real local training smoke job:
+Run automatic source discovery and queue a real local training job:
 
 ```powershell
-.\seed_training_job_windows.bat
+.\start_auto_training_windows.bat
+```
+
+Run it continuously:
+
+```powershell
+.\start_auto_training_windows.bat -Loop
 ```
 
 Bind an existing local training artifact into owned chat if needed:

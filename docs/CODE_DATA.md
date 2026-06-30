@@ -149,6 +149,28 @@ optional distributed code training job creation
 
 Even in broad authorized mode, secrets, tokens, private keys, build outputs, vendored dependencies, and unreadable files are filtered out before training records are written.
 
+For the local automatic path, use:
+
+```powershell
+.\start_auto_training_windows.bat -Server http://127.0.0.1:8001
+.\start_training_worker_windows.bat -Server http://127.0.0.1:8001
+```
+
+The automatic path performs:
+
+```text
+GitHub source discovery
+-> source manifest update
+-> bounded fetch
+-> instruction/code corpus generation
+-> training JSONL generation
+-> /training/jobs queue submission
+-> worker training
+-> artifact binding into owned runtime
+```
+
+Use `-Loop` on `start_auto_training_windows.bat` to keep discovering and queuing new jobs periodically.
+
 For low-level syntax, spelling, AST shape, and API usage training, run:
 
 ```bash
