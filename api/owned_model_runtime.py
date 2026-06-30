@@ -62,7 +62,7 @@ class OwnedModelRuntime:
         )
 
     def active_binding(self, request: OwnedModelRequest) -> dict | None:
-        return self.binding_store.latest_for_model(f"{request.model_id}:{request.version}", active_only=True)
+        return self.binding_store.latest_for_model_statuses(f"{request.model_id}:{request.version}", ("active",))
 
     def assert_binding_usable(self, request: OwnedModelRequest) -> dict | None:
         binding = self.active_binding(request)

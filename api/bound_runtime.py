@@ -18,7 +18,7 @@ class ArtifactBoundRuntime:
 
     def chat(self, prompt: str, model_id: str, version: str) -> dict[str, Any]:
         model_key = f"{model_id}:{version}"
-        binding = self.binding_store.latest_for_model(model_key, active_only=True)
+        binding = self.binding_store.latest_for_model_statuses(model_key, ("active",))
         if not binding:
             raise BoundRuntimeUnavailable("no active artifact binding for " + model_key)
         backend_kind = binding.get("backend_kind") or "checkpoint-artifact"

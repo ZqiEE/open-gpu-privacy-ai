@@ -6,6 +6,8 @@ from typing import Any
 
 from api.artifact_binding import ArtifactBindingStore
 from api.artifact_distribution import distribution_metadata, prepare_local_artifact_distribution
+from api.replica_maintenance import run_replica_maintenance_once
+from api.training_artifact_gate import evaluate_training_artifact_binding
 
 
 OWNED_MODEL_ID = "ailovanta-owned"
@@ -20,6 +22,9 @@ def bind_local_training_artifact(
     manifest_dir: str | Path = "runtime_data/artifact_manifests",
     replica_book_path: str | Path = "runtime_data/replica_book.json",
     storage_node_id: str = "local-training-storage",
+    auto_repair_replicas: bool = True,
+    replica_tasks_path: str | Path = "runtime_data/replica_repair_tasks.json",
+    replica_storage_root: str | Path = "runtime_data/storage_replicas",
 ) -> dict[str, Any] | None:
     location = Path(str(output.get("location") or ""))
     model_path = location / "ngram_model.json"
@@ -27,7 +32,7 @@ def bind_local_training_artifact(
         return None
 
     artifact_hash = "sha256:" + hashlib.sha256(model_path.read_bytes()).hexdigest()
-    backend_ref = "file://" + str(model_path.resolve())
+    backend_ref = model_path.resolve().as_uri()
     source_job_id = str(output.get("source_job_id") or "local-training")
     store = binding_store or ArtifactBindingStore()
     artifact = {
@@ -54,18 +59,33 @@ def bind_local_training_artifact(
     }
     if distribution:
         metadata["artifact_distribution"] = distribution_metadata(distribution)
+    replica_maintenance = None
+    if distribution and auto_repair_replicas:
+        replica_maintenance = run_replica_maintenance_once(tasks_path=replica_tasks_path, replica_book_path=replica_book_path, storage_root=replica_storage_root)
+        metadata["replica_maintenance"] = {
+            "ok": replica_maintenance.get("ok"),
+            "completed_count": replica_maintenance.get("completed_count"),
+            "failed_count": replica_maintenance.get("failed_count"),
+            "skipped_count": replica_maintenance.get("skipped_count"),
+        }
 
-    return store.register_binding(
+    binding = store.register_binding(
         {
             "model_id": OWNED_MODEL_ID,
             "version": OWNED_VERSION,
             "model_key": OWNED_MODEL_KEY,
             "manifest_hash": OWNED_MANIFEST_HASH,
-            "status": "active",
+            "status": "candidate",
         },
         artifact,
         backend_kind="lightweight-ngram",
         backend_ref=backend_ref,
-        status="active",
+        status="candidate",
         metadata=metadata,
     )
+    gate = evaluate_training_artifact_binding(binding, model_path=model_path, replica_book_path=replica_book_path)
+    updated_metadata = {**binding.get("metadata", {}), "promotion_gate": gate}
+    binding = store.update_metadata(binding["binding_id"], updated_metadata) or binding
+    if gate.get("ok"):
+        binding = store.set_status(binding["binding_id"], "active") or binding
+    return binding

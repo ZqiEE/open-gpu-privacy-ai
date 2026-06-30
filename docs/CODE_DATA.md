@@ -175,11 +175,13 @@ GitHub source frontier discovery
 -> training JSONL generation
 -> /training/jobs queue submission
 -> worker training
--> artifact binding into owned runtime
+-> candidate artifact binding
 -> chunk manifest generation
 -> replica_book registration
 -> replica repair task planning
 -> local chunk replica creation when source bytes are reachable
+-> promotion gate
+-> active runtime binding only if gate passes
 ```
 
 Use `-Loop` on `start_auto_training_windows.bat` to keep discovering and queuing new jobs periodically.
@@ -201,6 +203,8 @@ runtime_data/github_source_frontier.json
 The frontier starts from language and code-topic seeds, then adds new language/topic queries from discovered repositories. Each full-auto cycle runs a bounded number of due queries, updates priorities, deduplicates repositories by URL, and sorts enabled sources by `discovery_score` before training picks a bounded batch.
 
 The continuous training ledger prevents wasteful retraining. It records source fingerprints, source revisions, dataset hashes, queued job ids, and batch status. Each full-auto cycle syncs `/training/jobs`, skips sources already queued or completed for the same revision/corpus mode, and only queues a new job when fresh source fingerprints are available.
+
+Training output does not automatically become a live runtime. A local artifact is first bound as `candidate`, then the promotion gate checks artifact integrity, basic training metrics, and distributed replica health. Owned chat/runtime paths only load `active` bindings, so failed candidates remain inspectable but are not served.
 
 Training is code-first by default. The autonomous path builds instruction/code corpora from repository docs, tests, examples, API usage, and source files before creating `lora_micro` jobs. This matches the product direction: first improve code intelligence with measurable artifacts, then promote stronger model backends.
 

@@ -12,6 +12,7 @@ def test_show_full_auto_status_outputs_json(capsys) -> None:
     assert "gpu" in payload
     assert "scheduler" in payload
     assert "latest_owned_binding" in payload
+    assert "latest_owned_candidate" in payload
     assert "replica_status" in payload
     assert "continuous_training" in payload
     assert "jobs" in payload

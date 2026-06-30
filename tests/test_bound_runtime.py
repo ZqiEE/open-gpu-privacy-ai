@@ -86,3 +86,23 @@ def test_bound_runtime_missing_binding() -> None:
         assert "no active artifact binding" in str(exc)
     else:
         raise AssertionError("expected unavailable")
+
+
+def test_bound_runtime_does_not_use_candidate_binding(tmp_path: Path) -> None:
+    model = tmp_path / "ngram_model.json"
+    model.write_text(json.dumps({"schema": "ailovanta.lightweight_ngram.v1", "rows": 1, "transitions": 1, "train_loss": 1.0, "counts": {}}), encoding="utf-8")
+    store = ArtifactBindingStore(tmp_path / "bindings.sqlite3")
+    store.register_binding(
+        {"model_id": "ailovanta-owned", "version": "candidate", "model_key": "ailovanta-owned:candidate", "manifest_hash": "sha256:runtime", "status": "candidate"},
+        {"artifact_id": "artifact_1", "artifact_hash": "sha256:artifact", "checkpoint_uri": "file://" + str(model)},
+        backend_kind="lightweight-ngram",
+        backend_ref="file://" + str(model),
+        status="candidate",
+    )
+
+    try:
+        ArtifactBoundRuntime(store).chat("hello", "ailovanta-owned", "candidate")
+    except BoundRuntimeUnavailable as exc:
+        assert "no active artifact binding" in str(exc)
+    else:
+        raise AssertionError("candidate binding must not serve runtime chat")

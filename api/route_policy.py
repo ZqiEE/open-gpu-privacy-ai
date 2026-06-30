@@ -10,7 +10,7 @@ def check_route(model_id: str, model_key: str, request_id: str, bindings: Artifa
     if model_id != "ailovanta-owned":
         return None
     store = bindings or ArtifactBindingStore()
-    item = store.latest_for_model(model_key, active_only=True)
+    item = store.latest_for_model_statuses(model_key, ("active",))
     if not item:
         return {"assigned": False, "reason": "no usable model binding", "request_id": request_id, "model_key": model_key}
     report = check_runtime_ref(item)

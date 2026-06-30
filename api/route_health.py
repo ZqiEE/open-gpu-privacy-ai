@@ -13,7 +13,7 @@ from api.route_book import RouteBook
 from api.runtime_ref import to_local_path
 
 
-ACTIVE_BINDING_STATUSES = {"active", "candidate"}
+ACTIVE_BINDING_STATUSES = {"active"}
 
 
 class RouteHealth:

@@ -103,6 +103,8 @@ def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) 
         ArtifactBindingStore(tmp_path / "bindings.sqlite3"),
         manifest_dir=tmp_path / "artifact_manifests",
         replica_book_path=tmp_path / "replica_book.json",
+        replica_tasks_path=tmp_path / "replica_repair_tasks.json",
+        replica_storage_root=tmp_path / "storage_replicas",
     )
 
     assert binding is not None
@@ -115,6 +117,39 @@ def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) 
     assert Path(distribution["manifest_uri"].removeprefix("file://")).exists()
     assert distribution["replica_book_path"].endswith("replica_book.json")
     assert binding["metadata"]["storage_policy"]["mode"] == "distributed_chunk_manifest"
+    assert binding["metadata"]["promotion_gate"]["ok"] is True
+    assert binding["metadata"]["promotion_gate"]["decision"] == "promote_active"
+
+
+def test_bind_local_training_artifact_keeps_under_replicated_artifact_candidate(tmp_path: Path) -> None:
+    dataset = write_dataset(tmp_path / "train.jsonl")
+    output_dir = tmp_path / "node-model"
+    result = run_model_job(
+        {
+            "name": "node-real-local",
+            "dataset_uri": "file://" + str(dataset),
+            "base_model": "ailovanta-bootstrap",
+            "max_steps": 2,
+            "output_dir": str(output_dir),
+        },
+        {"device_name": "test-node", "cpu_threads": 4, "memory_gb": 16, "has_gpu": True},
+        "job-bind-candidate",
+    )
+
+    from api.artifact_binding import ArtifactBindingStore
+
+    binding = bind_local_training_artifact(
+        result,
+        ArtifactBindingStore(tmp_path / "bindings.sqlite3"),
+        manifest_dir=tmp_path / "artifact_manifests",
+        replica_book_path=tmp_path / "replica_book.json",
+        auto_repair_replicas=False,
+    )
+
+    assert binding is not None
+    assert binding["status"] == "candidate"
+    assert binding["metadata"]["promotion_gate"]["ok"] is False
+    assert "artifact_distribution:replica_book_under_replicated" in binding["metadata"]["promotion_gate"]["blockers"]
 
 
 def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:

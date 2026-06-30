@@ -42,7 +42,7 @@ def allow_bootstrap_fallback() -> bool:
 
 def resolve_binding(model_id: str, version: str) -> dict | None:
     try:
-        return binding_store().latest_for_model(f"{model_id}:{version}", active_only=True)
+        return binding_store().latest_for_model_statuses(f"{model_id}:{version}", ("active",))
     except Exception:
         return None
 

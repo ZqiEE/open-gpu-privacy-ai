@@ -31,7 +31,7 @@ class ModelWarm:
         self.chain = chain or ChainRegistry()
 
     def run(self, spec: WarmSpec) -> dict[str, Any]:
-        binding = self.bindings.latest_for_model(spec.model_key, active_only=True)
+        binding = self.bindings.latest_for_model_statuses(spec.model_key, ("active",))
         if not binding:
             return {"ok": False, "reason": "no usable model binding", "model_key": spec.model_key}
         report = check_runtime_ref(binding)

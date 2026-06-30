@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from urllib.parse import urlparse
 
 from api.artifact_fetch import fetch_artifact, sha256_file
 from api.content_gateway import fetch_content_uri
 from api.object_store import get_object
+from api.runtime_ref import to_local_path
 
 
 def normalize_hash(value: str | None) -> str:
@@ -24,7 +24,9 @@ def cache_dir_for(uri: str, root: str = "runtime_data/artifact_verify") -> Path:
 def fetch_for_verify(uri: str, cache_root: str = "runtime_data/artifact_verify") -> dict:
     cache = cache_dir_for(uri, cache_root)
     if uri.startswith("file://"):
-        path = Path(urlparse(uri).path)
+        path = to_local_path(uri)
+        if path is None:
+            return {"ok": False, "reason": "bad_file_uri", "uri": uri}
         if not path.exists():
             return {"ok": False, "reason": "file_artifact_not_found", "uri": uri}
         return {"ok": True, "uri": uri, "path": str(path), "kind": "file"}

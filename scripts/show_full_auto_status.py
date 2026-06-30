@@ -23,7 +23,8 @@ def main() -> int:
     scheduler = SchedulerStore(ROOT / "runtime_data" / "scheduler.sqlite3")
     bindings = ArtifactBindingStore(ROOT / "runtime_data" / "artifact_bindings.sqlite3")
     repair_store = ReplicaRepairStore(path=ROOT / "runtime_data" / "replica_repair_tasks.json", replica_book_path=ROOT / "runtime_data" / "replica_book.json")
-    latest_binding = bindings.latest_for_model("ailovanta-owned:candidate", active_only=True)
+    latest_active_binding = bindings.latest_for_model_statuses("ailovanta-owned:candidate", ("active",))
+    latest_candidate_binding = bindings.latest_for_model_statuses("ailovanta-owned:candidate", ("candidate",))
     repair_tasks = repair_store.list_tasks(limit=20)
     jobs = scheduler.list_jobs(limit=200)
     ledger_path = ROOT / "runtime_data" / "continuous_training_ledger.json"
@@ -40,7 +41,8 @@ def main() -> int:
         "state": state,
         "gpu": detect_gpu(),
         "scheduler": scheduler.status(),
-        "latest_owned_binding": latest_binding,
+        "latest_owned_binding": latest_active_binding,
+        "latest_owned_candidate": latest_candidate_binding,
         "replica_status": replica_status(ROOT / "runtime_data" / "replica_book.json"),
         "replica_repairs": {
             "queued": len([task for task in repair_tasks if task.get("status") == "queued"]),

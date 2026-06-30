@@ -105,7 +105,7 @@ If Transformers/CUDA/PEFT are installed and the job requests them, `api.model_jo
 
 The old `seed_training_job_windows.bat` command is only a deterministic smoke-test helper. Use `start_auto_training_windows.bat` for the real autonomous path.
 
-After a local training artifact is produced, the worker binds it to `ailovanta-owned:candidate` so owned chat can route through the latest training artifact instead of the bootstrap checkpoint. The binding also writes:
+After a local training artifact is produced, the worker first binds it to `ailovanta-owned:candidate` as a candidate. Owned chat can route through it only after the promotion gate marks the binding `active`. The binding also writes:
 
 ```text
 runtime_data/artifact_manifests/<artifact_id>.manifest.json
@@ -117,6 +117,8 @@ runtime_data/storage_replicas/
 This is the local version of the distributed model storage plan: large model files are represented by chunk hashes, replica policy, replica locations, and runtime binding metadata. Runtime should load through the binding and manifest hash, not by handing out raw model files as public assets.
 
 `start_full_auto_windows.bat` also starts `scripts/run_replica_maintenance.py --loop`. The maintenance loop scans for under-replicated chunks, creates `storage_replica_repair` tasks, copies locally reachable artifact chunks into `runtime_data/storage_replicas/`, verifies each chunk hash, and marks the task complete in `replica_book.json`.
+
+Worker artifacts are registered as `candidate` first. The local promotion gate checks that the artifact is loadable, the training artifact has usable rows/transitions/loss, artifact bytes match the binding hash, and the distributed replica book is healthy. Only a passing candidate is promoted to `active`; owned chat and runtime routes only use active bindings.
 
 If you already trained before this binding step existed, bind the newest local artifact manually:
 
@@ -156,6 +158,7 @@ real local lightweight training artifact: implemented
 local chunk manifest + replica book for trained artifacts: implemented
 automatic local replica repair/maintenance: implemented
 continuous source training ledger: implemented
+training artifact promotion gate before active runtime: implemented
 CUDA/QLoRA training backend: supported when optional dependencies and CUDA torch are installed
 continuous distributed training: next stage, requires many external workers and promotion automation
 ```
