@@ -5,7 +5,12 @@
       "name": "ailovanta",
       "url": "https://github.com/ZqiEE/ailovanta.git",
       "branch": "main",
-      "license_policy": "owner_controlled",
+      "license_policy": "private_owner_unrestricted",
+      "authorization_basis": "owner/shareholder authorized code learning",
+      "allowed_training_types": ["code_lora", "code_qlora", "code_distill", "code_eval"],
+      "allowed_uses": ["finetune", "distillation", "evaluation", "commercial_runtime"],
+      "commercial_use_allowed": true,
+      "distillation_allowed": true,
       "enabled": true
     }
   ]

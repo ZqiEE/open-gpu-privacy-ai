@@ -45,9 +45,19 @@ When a foundation result is imported:
 foundation result
 -> core result
 -> runtime model
+-> artifact distribution metadata when local bytes are available
 -> artifact binding
 -> chain event with binding_id
 ```
+
+The binding metadata may include:
+
+```text
+artifact_distribution
+artifact_manifest
+```
+
+`artifact_distribution` records storage/chunk evidence. `artifact_manifest` is only attached when the storage bytes hash matches the model artifact hash, so validation does not confuse artifact identity with checkpoint file bytes.
 
 ## Worker integration
 

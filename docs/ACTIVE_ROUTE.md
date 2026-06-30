@@ -74,6 +74,46 @@ GET /route-health/owned-chat/default?verify_artifact=true
 POST /route-health/check {"route_key":"owned-chat/default","disable_if_bad":true,"verify_artifact":true}
 ```
 
+With distribution verification enabled, health also checks the owned artifact storage evidence:
+
+```text
+binding metadata contains artifact_distribution
+artifact_distribution points to a local artifact manifest
+manifest_hash matches the manifest bytes
+manifest artifact_hash matches storage_artifact_hash
+replica_book contains the storage artifact hash
+replica_book reports no under-replicated chunks
+```
+
+API:
+
+```text
+GET /route-health/owned-chat/default?verify_distribution=true
+POST /route-health/check {"route_key":"owned-chat/default","disable_if_bad":true,"verify_distribution":true}
+```
+
+This gate intentionally verifies storage evidence, not model bytes identity. `model_artifact_hash` is the core model artifact record hash; `storage_artifact_hash` is the bytes hash recorded in the chunk manifest.
+
+With chain verification enabled, health also checks the model promotion proof:
+
+```text
+chain registry contains a model_artifact_promoted event
+event hash is present
+event is anchored
+chain_tx / anchor URI is present
+anchor receipt is attached
+anchor receipt references the event/artifact hash
+```
+
+API:
+
+```text
+GET /route-health/owned-chat/default?verify_chain=true
+POST /route-health/check {"route_key":"owned-chat/default","disable_if_bad":true,"verify_chain":true}
+```
+
+The chain gate stores small hashes and receipts only. Model checkpoint bytes stay in artifact storage and chunk replicas.
+
 ## Chat through active route
 
 ```text
@@ -102,6 +142,8 @@ If the route exists but fails health checks, it returns `owned-route-unhealthy`.
 ```text
 proof/trust gate passes
 artifact integrity gate passes when enabled
+artifact distribution gate passes when enabled
+chain/anchor gate passes when enabled
 runtime doctor passes
 model warm succeeds
 ```
@@ -112,6 +154,18 @@ Enable artifact verification for route publication:
 export AILOVANTA_VERIFY_ROUTE_ARTIFACT=true
 ```
 
+Enable distributed artifact evidence verification for route publication:
+
+```bash
+export AILOVANTA_VERIFY_ROUTE_DISTRIBUTION=true
+```
+
+Enable chain anchor verification for route publication:
+
+```bash
+export AILOVANTA_VERIFY_ROUTE_CHAIN=true
+```
+
 Or pass `verify_artifact=true` to the apply API:
 
 ```json
@@ -119,11 +173,17 @@ Or pass `verify_artifact=true` to the apply API:
   "result_path": "runtime_data/local_loop/foundation_result.json",
   "runtime_id": "rt-owned-1",
   "node_id": "node-owned-1",
-  "verify_artifact": true
+  "verify_artifact": true,
+  "verify_distribution": true,
+  "verify_chain": true
 }
 ```
 
 If the artifact cannot be fetched or its sha256 does not match, apply will not warm or publish the route.
+
+If distributed evidence is enabled and `artifact_distribution`, chunk manifest, manifest hash, or replica book health is missing, apply will not warm or publish the route.
+
+If chain evidence is enabled and the promotion event is missing, unanchored, or lacks an anchor receipt, apply will not warm or publish the route.
 
 ## Rollback behavior
 

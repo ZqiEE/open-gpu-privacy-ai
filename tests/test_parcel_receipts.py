@@ -21,7 +21,16 @@ def test_normalize_receipt_from_metrics() -> None:
 def test_export_receipts_from_outbox(tmp_path) -> None:
     store = ParcelStore(tmp_path / "parcels")
     store.put_outbox({"id": "out_1", "task_id": "task_1", "node_id": "node_1", "checkpoint_hash": "sha256:abc"})
-    result = export_receipts(store=store, output_path=tmp_path / "receipts.json")
+    result = export_receipts(store=store, output_path=tmp_path / "receipts.json", require_proof=False)
     assert result["ok"] is True
     assert result["count"] == 1
     assert (tmp_path / "receipts.json").exists()
+
+
+def test_export_receipts_respects_required_proof(tmp_path) -> None:
+    store = ParcelStore(tmp_path / "parcels")
+    store.put_outbox({"id": "out_1", "task_id": "task_1", "node_id": "node_1", "checkpoint_hash": "sha256:abc"})
+    result = export_receipts(store=store, output_path=tmp_path / "receipts.json", require_proof=True)
+    assert result["ok"] is True
+    assert result["count"] == 0
+    assert result["rejected_count"] == 1

@@ -76,6 +76,34 @@ python scripts/full_local_loop.py \
   --node-runs 4
 ```
 
+## Local v0 readiness check
+
+Before running separate machines, verify the scaffold still passes the v0 stop line:
+
+```bash
+python scripts/testnet_v0_check.py
+```
+
+This checks:
+
+```text
+gateway API
+node registration
+/nodes visibility
+/runtime/nodes visibility
+node admission
+model manifest registration
+runtime routing
+signed worker result submission
+signed worker task envelope
+proof verification record
+artifact chunk manifest
+artifact runtime binding
+owned chat through artifact-bound worker
+worker validation receipt
+owned runtime dashboard audit
+```
+
 This performs:
 
 ```text

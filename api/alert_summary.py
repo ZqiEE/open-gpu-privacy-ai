@@ -26,12 +26,12 @@ class AlertSummary:
     def __init__(self) -> None:
         self.runtime = RuntimeStore()
 
-    def collect(self, route_key: str = "owned-chat/default", verify_bytes: bool = False) -> dict[str, Any]:
+    def collect(self, route_key: str = "owned-chat/default", verify_bytes: bool = False, verify_distribution: bool = False, verify_chain: bool = False) -> dict[str, Any]:
         alerts: list[dict[str, Any]] = []
-        prod = check_production_ready_plus(route_key=route_key, verify_bytes=verify_bytes)
+        prod = check_production_ready_plus(route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
         for blocker in prod.get("blockers", []):
             alerts.append(make_alert("prod_ready_plus", str(blocker)))
-        route = RouteHealth().check(route_key, verify_artifact=verify_bytes)
+        route = RouteHealth().check(route_key, verify_artifact=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
         for blocker in route.get("blockers", []):
             alerts.append(make_alert("route_health", str(blocker), {"route_key": route_key}))
         runtime_route = RuntimeReadiness().check_route(route_key)
@@ -55,4 +55,4 @@ class AlertSummary:
         for alert in alerts:
             levels[alert["severity"]] = levels.get(alert["severity"], 0) + 1
         ok = not any(alert["severity"] in {"critical", "high"} for alert in alerts)
-        return {"ok": ok, "route_key": route_key, "verify_bytes": verify_bytes, "levels": levels, "alerts": alerts, "prod_ready_plus": prod, "route_health": route, "runtime_route": runtime_route, "backup": backup, "runtime": rt, "abuse_controls": abuse, "release_review": review}
+        return {"ok": ok, "route_key": route_key, "verify_bytes": verify_bytes, "verify_distribution": verify_distribution, "verify_chain": verify_chain, "levels": levels, "alerts": alerts, "prod_ready_plus": prod, "route_health": route, "runtime_route": runtime_route, "backup": backup, "runtime": rt, "abuse_controls": abuse, "release_review": review}

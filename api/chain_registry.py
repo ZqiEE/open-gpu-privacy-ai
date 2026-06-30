@@ -97,6 +97,46 @@ class ChainRegistry:
             row = conn.execute("SELECT * FROM chain_events WHERE event_id = ?", (event_id,)).fetchone()
         return self._api_event(dict(row)) if row else None
 
+    def latest_model_event(
+        self,
+        model_id: str,
+        version: str,
+        artifact_hash: str,
+        runtime_manifest_hash: str,
+        event_type: str = "model_artifact_promoted",
+    ) -> dict | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM chain_events
+                WHERE model_id = ?
+                  AND version = ?
+                  AND artifact_hash = ?
+                  AND runtime_manifest_hash = ?
+                  AND event_type = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (model_id, version, artifact_hash, runtime_manifest_hash, event_type),
+            ).fetchone()
+        return self._api_event(dict(row)) if row else None
+
+    def mark_anchored(self, event_id: str, chain_tx: str, anchor_receipt: dict[str, Any] | None = None, anchor_status: str = "anchored") -> dict | None:
+        event = self.get_event(event_id)
+        if not event:
+            return None
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        if anchor_receipt:
+            metadata["anchor_receipt"] = anchor_receipt
+        payload["metadata"] = metadata
+        with self.connect() as conn:
+            conn.execute(
+                "UPDATE chain_events SET anchor_status = ?, chain_tx = ?, payload_json = ? WHERE event_id = ?",
+                (anchor_status, chain_tx, json.dumps(payload, ensure_ascii=False, sort_keys=True), event_id),
+            )
+        return self.get_event(event_id)
+
     def list_events(self, limit: int = 100) -> list[dict]:
         with self.connect() as conn:
             rows = conn.execute("SELECT * FROM chain_events ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()

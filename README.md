@@ -220,6 +220,56 @@ API docs:  http://127.0.0.1:8000/docs
 Dashboard: http://127.0.0.1:8000/dashboard
 ```
 
+Run your machine as a local training worker in a second terminal:
+
+```powershell
+.\start_training_worker_windows.bat
+```
+
+Run automatic source discovery and queue a real local training job:
+
+```powershell
+.\start_auto_training_windows.bat
+```
+
+One-command full-auto mode starts the API, autonomous source discovery/training queue, and local training worker together:
+
+```powershell
+.\start_full_auto_windows.bat
+```
+
+Full-auto is code-first: it discovers sources, builds code/instruction training data, queues training jobs, runs the local worker, binds the artifact to owned chat, and writes chunk/replica metadata for distributed storage.
+
+Check full-auto state:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\show_full_auto_status.py
+```
+
+Stop full-auto background processes:
+
+```powershell
+.\stop_full_auto_windows.bat
+```
+
+Run it continuously:
+
+```powershell
+.\start_auto_training_windows.bat -Loop
+```
+
+Bind an existing local training artifact into owned chat if needed:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\bind_latest_training_artifact.py
+```
+
+Check whether your GPU is visible:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\show_gpu.py
+```
+
 ## Local check
 
 ```bash

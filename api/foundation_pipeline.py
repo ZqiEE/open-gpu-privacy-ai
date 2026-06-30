@@ -15,6 +15,9 @@ def run_foundation_pipeline(
     job_id: str,
     core_path: str | Path | None = None,
     work_dir: str | Path = "runtime_data/foundation_pipeline",
+    execute_checkpoints: bool = False,
+    checkpoint_output_root: str | Path | None = None,
+    training_command: str | None = None,
 ) -> dict[str, Any]:
     core_root = Path(core_path or os.getenv("AILOVANTA_CORE_PATH", "../ailovanta-core")).resolve()
     if not core_root.exists():
@@ -36,6 +39,12 @@ def run_foundation_pipeline(
         "--output",
         str(result_path),
     ]
+    if execute_checkpoints:
+        command.append("--execute-checkpoints")
+    if checkpoint_output_root:
+        command.extend(["--checkpoint-output-root", str(Path(checkpoint_output_root).resolve())])
+    if training_command:
+        command.extend(["--training-command", training_command])
     subprocess.run(command, cwd=core_root, check=True)
 
     imported = import_foundation_result_file(result_path)
@@ -45,6 +54,7 @@ def run_foundation_pipeline(
         "core_path": str(core_root),
         "export_path": str(export_path),
         "result_path": str(result_path),
+        "execute_checkpoints": execute_checkpoints,
         "import_result": imported,
     }
 

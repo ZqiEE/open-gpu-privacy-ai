@@ -27,9 +27,15 @@ transformers-causal-lm loads a local Transformers model directory
 
 ```text
 1. artifact-bound runtime
-2. configured model backend client
-3. Ollama local runtime fallback
+2. fail closed when no active binding exists
+3. optional bootstrap fallback only when AILOVANTA_WORKER_ALLOW_BOOTSTRAP_FALLBACK=true
 ```
+
+The worker is strict by default. `/v1/owned/infer` must resolve an active or candidate artifact binding for `model_id + version`.
+
+The request `model_manifest_hash` must match the binding `runtime_manifest_hash`. A mismatch returns `409` with `reason: model_manifest_hash_mismatch`.
+
+When no binding exists, the worker returns `503` with `reason: missing_artifact_binding` instead of silently using Ollama. This keeps owned-runtime responses tied to imported training artifacts and prevents a bootstrap runtime from being presented as a verified owned model.
 
 ## Backend ref import rule
 
@@ -77,7 +83,17 @@ POST /artifact-bindings/{binding_id}/check
 
 The check endpoint rechecks the local ref, updates the binding status, and updates the runtime model status. If a missing file appears later, the status can recover from `unavailable` to `candidate`.
 
-Owned-chat also checks the active artifact binding before it calls the worker. If the active binding points to a missing local file or directory, owned-chat fails fast with `owned-runtime-unavailable` instead of silently falling through to a fallback runtime.
+Owned-chat prefers the owned runtime by default. `/ailovanta/v1/chat` first tries the artifact-bound worker path; if no owned route is ready and `AILOVANTA_REQUIRE_OWNED_MODEL` is not enabled, it can still fall back to Ollama/local fallback with `owned_model_ready=false` and an `owned_runtime_error` reason. Set `AILOVANTA_PREFER_OWNED_MODEL=false` only when intentionally testing the bootstrap/Ollama path.
+
+If the active binding points to a missing local file or directory and `AILOVANTA_REQUIRE_OWNED_MODEL=true`, owned-chat fails fast with `owned-runtime-unavailable` instead of silently falling through to a fallback runtime.
+
+For local setup without Ollama, seed an in-process owned worker:
+
+```bash
+python scripts/bootstrap_owned_runtime.py
+```
+
+This registers `ailovanta-owned:candidate`, a trusted runtime node, `inprocess://ailovanta-worker`, and an active checkpoint binding. It is a local bootstrap path. It must not be described as a trained model. Later foundation imports should replace the checkpoint binding only with a real Transformers/LoRA model artifact that passes promotion gates.
 
 ## Rollback sync
 
@@ -92,7 +108,17 @@ So a rolled-back candidate is no longer selected by active binding lookup.
 
 ## Important reality
 
-A jsonl-stat checkpoint is not a full conversational model. When the binding points to a lightweight checkpoint, the worker returns checkpoint-bound status and metadata instead of pretending to generate as a large model.
+A jsonl-stat checkpoint is not a full conversational model. A lightweight n-gram artifact is also not a trained code model. These artifacts prove that the training, binding, provenance, and storage loop ran; they do not prove that Ailovanta has trained a usable conversational/code foundation model.
+
+User-visible answers must keep this boundary strict:
+
+```text
+checkpoint/bootstrap binding -> not trained model
+lightweight-ngram artifact   -> training pipeline proof, not trained model
+transformers/LoRA artifact   -> can be called trained only after promotion gates pass
+```
+
+When the binding points to a checkpoint or lightweight artifact, the worker should report the boundary directly instead of pretending to generate with a model. Detailed artifact facts stay in `artifact_binding` and `validation_provenance`.
 
 A real generative path requires a binding whose `backend_kind` is `transformers-local` or `transformers-causal-lm` and whose `backend_ref` points to a valid local model directory.
 
@@ -111,4 +137,4 @@ A real generative path requires a binding whose `backend_kind` is `transformers-
 
 ## Meaning
 
-Owned chat can now be artifact-aware. It can prefer a bound artifact backend before falling back to other local runtimes, rollback removes bad bindings from the active path, and import/check mark unreachable local refs and runtime manifests as unavailable.
+Owned chat can now be artifact-aware and fail closed. It calls a worker only after route selection, and the worker must prove the selected runtime manifest is the one bound to the local artifact. Rollback removes bad bindings from the active path, and import/check mark unreachable local refs and runtime manifests as unavailable.

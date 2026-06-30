@@ -13,7 +13,7 @@ class OwnedDoctor:
         self.runtime = runtime or RuntimeStore()
 
     def check(self, model_key: str = "ailovanta-owned:candidate") -> dict[str, Any]:
-        binding = self.bindings.latest_for_model(model_key, active_only=True)
+        binding = self.bindings.latest_for_model_statuses(model_key, ("active",))
         binding_ok = binding is not None
         ref_report = check_runtime_ref(binding) if binding else {"ready": False, "reason": "missing_binding"}
         model = self.runtime.get_model(model_key)

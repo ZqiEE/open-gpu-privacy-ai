@@ -8,6 +8,8 @@ v1.7 adds a safer worker execution layer for local MVP nodes.
 - Payload size is limited
 - Runtime is capped
 - Unknown jobs return a failed result instead of running
+- Worker task envelopes are signed before claim
+- Worker results must match the signed task and node proof
 - The current runner is still simulated
 
 ## Allowed job types
@@ -35,7 +37,6 @@ python -m pytest tests/test_task_policy.py tests/test_job_runner_policy.py -q
 
 ## Next hardening steps
 
-- signed job metadata
 - isolated worker process
 - per-job temp directory
 - output size limits

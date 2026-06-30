@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from node_client.code_task_runner import run_code_instruction_task
 from node_client.job_descriptor import JobDescriptorPolicy
 from node_client.task_policy import TaskPolicy
 
@@ -64,6 +65,16 @@ class JobRunner:
                 policy_reason="timeout",
                 descriptor_reason=descriptor_check.reason,
             )
+        if job_type == "code_instruction_eval":
+            run = run_code_instruction_task(job)
+            return JobRunResult(
+                job_id=job["id"],
+                status="ok" if run.passed else "failed",
+                output_summary=json_summary(run.report),
+                runtime_seconds=run.report["runtime_seconds"],
+                policy_reason=reason,
+                descriptor_reason=descriptor_check.reason,
+            )
         return JobRunResult(
             job_id=job["id"],
             status="ok",
@@ -84,3 +95,9 @@ class JobRunner:
             "lora_micro": 1.0,
             "model_shard": 1.0,
         }.get(job_type, 0.6)
+
+
+def json_summary(report: dict) -> str:
+    import json
+
+    return json.dumps(report, ensure_ascii=False, sort_keys=True)

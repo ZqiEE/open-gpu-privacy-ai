@@ -41,15 +41,28 @@ open_research
 request
 -> runtime router
 -> verified Ailovanta runtime manifest required
--> owned runtime result placeholder
+-> worker /v1/owned/infer
+-> artifact-bound result
+-> worker result validation receipt
 ```
 
-The next engineering step is to attach a real worker inference transport behind the verified runtime assignment.
+Owned chat can run with `AILOVANTA_REQUIRE_OWNED_MODEL=true`. In this mode it does not silently fall back to bootstrap/Ollama text.
+
+The chat response includes:
+
+```text
+worker_validation.receipt_id
+worker_validation.passed
+worker_validation.blockers
+worker_validation.sampled_chunks
+```
+
+The receipt ties the answer to the selected runtime manifest, artifact binding, optional artifact chunk manifest sample, and reputation event.
 
 ## Next steps
 
-1. Add `AILOVANTA_REQUIRE_OWNED_MODEL=true` mode to `/ailovanta/v1/chat`.
+1. Add `AILOVANTA_REQUIRE_OWNED_MODEL=true` mode to `/ailovanta/v1/chat`. Done locally.
 2. Register promoted artifacts from `ailovanta-core` as runtime manifests.
-3. Add worker inference transport.
-4. Route chat to verified runtime nodes.
+3. Add worker inference transport. Done locally through runtime endpoint registry or worker URL env.
+4. Route chat to verified runtime nodes. Done locally for owned-required chat mode.
 5. Feed user-rated outputs back into future training jobs.

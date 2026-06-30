@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
@@ -19,7 +21,7 @@ class CheckedOwnedChatRequest(BaseModel):
 def checked_owned_chat(body: CheckedOwnedChatRequest, runtime_registry) -> dict:
     request_id = "owned-" + (body.conversation_id or body.user_id)
     model_key = f"{body.model_id}:{body.version}"
-    policy = check_route(body.model_id, model_key, request_id, ArtifactBindingStore())
+    policy = check_route(body.model_id, model_key, request_id, ArtifactBindingStore(os.getenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", "runtime_data/artifact_bindings.sqlite3")))
     if policy is not None:
         return {
             "ok": False,

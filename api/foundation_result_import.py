@@ -4,10 +4,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from api.anchor_adapter import get_anchor_adapter
 from api.artifact_binding import ArtifactBindingStore
+from api.artifact_distribution import distribution_metadata, prepare_local_artifact_distribution
 from api.chain_registry import ChainRegistry
 from api.core_result_store import CoreResultStore
 from api.runtime_ref import check_runtime_ref
+from api.runtime_ref import to_local_path
 from api.runtime_store import RuntimeStore
 
 
@@ -54,12 +57,32 @@ def set_runtime_model_status(runtime: RuntimeStore, model_key: str, status: str)
     return {"model_key": model_key, "before": before[0] if before else None, "after": after[0] if after else None, "found": after is not None}
 
 
+def prepare_artifact_distribution(
+    artifact: dict[str, Any],
+    backend_ref: str,
+    manifest_dir: str | Path = "runtime_data/artifact_manifests",
+    replica_book_path: str | Path = "runtime_data/replica_book.json",
+    storage_node_id: str = "local-storage",
+) -> dict[str, Any] | None:
+    return prepare_local_artifact_distribution(
+        artifact,
+        backend_ref,
+        manifest_dir=manifest_dir,
+        replica_book_path=replica_book_path,
+        storage_node_id=storage_node_id,
+    )
+
+
 def import_foundation_result(
     payload: dict[str, Any],
     core_results: CoreResultStore | None = None,
     runtime_store: RuntimeStore | None = None,
     chain_registry: ChainRegistry | None = None,
     binding_store: ArtifactBindingStore | None = None,
+    artifact_manifest_dir: str | Path = "runtime_data/artifact_manifests",
+    replica_book_path: str | Path = "runtime_data/replica_book.json",
+    storage_node_id: str = "local-storage",
+    anchor_event: bool = True,
 ) -> dict[str, Any]:
     core_store = core_results or CoreResultStore()
     runtime = runtime_store or RuntimeStore()
@@ -72,6 +95,18 @@ def import_foundation_result(
     runtime_model = runtime_result["runtime_model"]
     artifact = manifest["artifact"]
     backend_ref = artifact.get("backend_ref") or artifact.get("checkpoint_uri", "")
+    distribution = prepare_artifact_distribution(
+        artifact,
+        backend_ref,
+        manifest_dir=artifact_manifest_dir,
+        replica_book_path=replica_book_path,
+        storage_node_id=storage_node_id,
+    )
+    binding_metadata = {"core_result_id": core_result["result_id"], "source": "foundation_import", "backend_ref_source": "artifact.backend_ref" if artifact.get("backend_ref") else "artifact.checkpoint_uri"}
+    if distribution:
+        binding_metadata["artifact_distribution"] = distribution_metadata(distribution)
+        if distribution["hash_matches_model_artifact"]:
+            binding_metadata["artifact_manifest"] = distribution["manifest"]
     initial_status = "active" if runtime_model.get("status") == "active" else "candidate"
     binding = bindings.register_binding(
         runtime_model,
@@ -79,7 +114,7 @@ def import_foundation_result(
         backend_kind=artifact.get("backend_kind", "checkpoint-artifact"),
         backend_ref=backend_ref,
         status=initial_status,
-        metadata={"core_result_id": core_result["result_id"], "source": "foundation_import", "backend_ref_source": "artifact.backend_ref" if artifact.get("backend_ref") else "artifact.checkpoint_uri"},
+        metadata=binding_metadata,
     )
     ref_check = check_runtime_ref(binding)
     runtime_status_update = None
@@ -94,10 +129,25 @@ def import_foundation_result(
             "version": runtime_model["version"],
             "artifact_hash": artifact["artifact_hash"],
             "runtime_manifest_hash": runtime_model["manifest_hash"],
-            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref, "ref_ready": ref_check["ready"], "ref_reason": ref_check["reason"], "runtime_status_update": runtime_status_update},
+            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref, "ref_ready": ref_check["ready"], "ref_reason": ref_check["reason"], "runtime_status_update": runtime_status_update, "artifact_distribution": {key: value for key, value in distribution.items() if key not in {"book", "manifest"}} if distribution else None},
         }
     )
-    return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "runtime_ref_check": ref_check, "runtime_status_update": runtime_status_update, "chain_event": chain_event}
+    anchor_receipt = None
+    if anchor_event:
+        anchor_payload = {
+            "schema_version": "ailovanta.model_promotion_anchor.v1",
+            "event_id": chain_event["event_id"],
+            "event_hash": chain_event["event_hash"],
+            "event_type": chain_event["event_type"],
+            "model_id": chain_event["model_id"],
+            "version": chain_event["version"],
+            "artifact_hash": chain_event["artifact_hash"],
+            "runtime_manifest_hash": chain_event["runtime_manifest_hash"],
+            "binding_id": binding["binding_id"],
+        }
+        anchor_receipt = get_anchor_adapter().anchor(anchor_payload).to_dict()
+        chain_event = chain.mark_anchored(chain_event["event_id"], chain_tx=anchor_receipt["anchor_uri"], anchor_receipt=anchor_receipt) or chain_event
+    return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "artifact_distribution": distribution, "runtime_ref_check": ref_check, "runtime_status_update": runtime_status_update, "chain_event": chain_event, "anchor_receipt": anchor_receipt}
 
 
 def import_foundation_result_file(path: str | Path) -> dict[str, Any]:

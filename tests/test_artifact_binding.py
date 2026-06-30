@@ -19,4 +19,7 @@ def test_artifact_binding_round_trip(tmp_path) -> None:
     assert binding["model_key"] == "ailovanta-owned:candidate"
     assert binding["artifact_hash"] == "sha256:artifact"
     assert store.latest_for_model("ailovanta-owned:candidate")["binding_id"] == binding["binding_id"]
+    updated = store.update_metadata(binding["binding_id"], {"gate": {"ok": True}})
+    assert updated["metadata"]["gate"]["ok"] is True
+    assert store.latest_for_model_statuses("ailovanta-owned:candidate", ("active",)) is None
     assert store.set_status(binding["binding_id"], "rolled_back")["status"] == "rolled_back"

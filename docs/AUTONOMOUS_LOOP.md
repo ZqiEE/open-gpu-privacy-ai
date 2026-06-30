@@ -108,3 +108,23 @@ rollback executor
 ## Meaning
 
 This is the first complete one-command automatic evolution controller. It does not make the model magically perfect, but it makes the learning cycle auditable, gated, recoverable, and able to execute local checkpoint work with backend configuration when enabled.
+
+## Autonomous Code Loop
+
+The AutoTruth loop works from public learning events. Ailovanta-Code also has a source-driven autonomous loop that does not require user uploads:
+
+```bash
+python scripts/run_autonomous_code_training_loop.py \
+  --sources runtime_data/github_code_sources.json \
+  --core-path ../ailovanta-core
+```
+
+API:
+
+```text
+POST /autonomous/code/run
+GET  /autonomous/code/latest
+GET  /autonomous/code/runs
+```
+
+This controller discovers/fetches authorized code sources, extracts instruction-first data, builds executable code tasks, runs sandboxed verification, exports verified samples, and only then calls the core foundation pipeline.

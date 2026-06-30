@@ -12,7 +12,9 @@ public foundation job
 -> ailovanta-core foundation runner
 -> foundation result json
 -> import result
+-> artifact chunk manifest and replica book entry
 -> runtime model manifest
+-> artifact runtime binding
 -> chain event
 -> owned-chat route
 ```
@@ -57,6 +59,8 @@ export_path
 result_path
 core_result
 runtime_model
+artifact_distribution
+artifact_binding
 chain_event
 ```
 
@@ -67,6 +71,7 @@ This closes the current local foundation loop:
 ```text
 create job
 -> run core planner
+-> prepare artifact distribution metadata
 -> register artifact-backed runtime model
 -> append chain event
 ```

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from api.ailovanta_native import AilovantaRunRequest, build_run_result
 from api.auth_store import AuthStore
@@ -14,24 +15,32 @@ from api.conversation_context import build_chat_context
 from api.conversation_store import ConversationStore
 from api.dashboard import DashboardService
 from api.github_auth import GitHubAuthConfigError, build_github_login_url, exchange_code_for_token, fetch_github_profile
+from api.gpu_probe import detect_gpu
 from api.health import get_health
 from api.memory_store import MemoryStore
 from api.node_security import require_token
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
+from api.owned_runtime_dashboard import OwnedRuntimeDashboard
 from api.openai_compat import ChatCompletionRequest, build_chat_completion_response, extract_user_prompt
 from api.reputation import ReputationService
 from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRequest
 from api.runtime_store import RuntimeStore
 from api.store_factory import create_scheduler_store, store_status
 from api.training import TrainingKind, TrainingPlanner
+from api.training_job_export import export_training_job
+from api.training_pipeline import run_training_pipeline
 from api.usage_store import UsageStore
 from api.verification import VerificationEngine
+from api.reputation_ops import ReputationOps
+from api.replica_repair_api import router as replica_repair_router
+from api.worker_result_validator import WorkerResultValidationStore, validate_worker_result
 
 APP_VERSION = "1.12.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 app = FastAPI(title="Ailovanta API", version=APP_VERSION)
+app.include_router(replica_repair_router)
 
 auth_store = AuthStore()
 store = create_scheduler_store()
@@ -69,12 +78,30 @@ class JobResult(BaseModel):
 
 
 class TrainingJobRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     kind: TrainingKind
     name: str
     dataset_uri: str
     base_model: str = "qwen2.5:3b"
     max_steps: int = Field(default=100, ge=1, le=10000)
     notes: str = ""
+    real: bool = False
+    use_transformers: bool = False
+    peft: bool = False
+    lora: bool = False
+    qlora: bool = False
+    requires_gpu: bool = False
+    allow_lightweight_fallback: bool = False
+    priority: int | None = Field(default=None, ge=0, le=1000)
+    min_memory_gb: float | None = Field(default=None, ge=0)
+    min_cpu_threads: int | None = Field(default=None, ge=0)
+    output_dir: str | None = None
+    batch_size: int | None = Field(default=None, ge=1)
+    gradient_accumulation_steps: int | None = Field(default=None, ge=1)
+    learning_rate: float | None = Field(default=None, gt=0)
+    max_length: int | None = Field(default=None, ge=1)
+    target_modules: list[str] | None = None
 
 
 class ModelVersionRequest(BaseModel):
@@ -82,6 +109,12 @@ class ModelVersionRequest(BaseModel):
     base_model: str
     source_job_id: str
     notes: str = ""
+
+
+class TrainingPipelineRequest(BaseModel):
+    job_id: str
+    core_path: str | None = None
+    work_dir: str = "runtime_data/training_pipeline"
 
 
 class MemoryAddRequest(BaseModel):
@@ -162,6 +195,13 @@ class RuntimeRouteRequest(BaseModel):
     verification_required: bool = True
 
 
+class WorkerResultValidationRequest(BaseModel):
+    worker_result: dict[str, Any]
+    artifact_manifest: dict[str, Any] | None = None
+    sample_size: int = Field(default=2, ge=0, le=32)
+    apply_reputation: bool = True
+
+
 def bearer_token(authorization: str | None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Bearer token required")
@@ -182,6 +222,47 @@ def answer_with_ollama(prompt: str, context_messages: list[dict] | None = None) 
         return ollama.chat(prompt, "open", []), "ollama"
     except OllamaUnavailable:
         return "Ailovanta local fallback: connect Ollama or a registered runtime to enable real model responses.", "fallback"
+
+
+def prefer_owned_chat() -> bool:
+    return os.getenv("AILOVANTA_PREFER_OWNED_MODEL", "true").lower() not in {"0", "false", "no", "off"}
+
+
+def require_owned_chat() -> bool:
+    return os.getenv("AILOVANTA_REQUIRE_OWNED_MODEL", "").lower() in {"1", "true", "yes", "on"}
+
+
+def owned_model_target(model_id: str, version: str) -> tuple[str, str]:
+    owned_model_id = model_id if model_id != "ailovanta-local" else os.getenv("AILOVANTA_OWNED_MODEL_ID", "ailovanta-owned")
+    owned_version = version if version != "local" else os.getenv("AILOVANTA_OWNED_MODEL_VERSION", "candidate")
+    return owned_model_id, owned_version
+
+
+def worker_validation_store() -> WorkerResultValidationStore:
+    return WorkerResultValidationStore(os.getenv("AILOVANTA_WORKER_VALIDATION_PATH", "runtime_data/worker_result_validations.sqlite3"))
+
+
+def worker_reputation_store() -> ReputationOps:
+    return ReputationOps(os.getenv("AILOVANTA_REPUTATION_PATH", str(store.path)))
+
+
+def owned_runtime_dashboard() -> OwnedRuntimeDashboard:
+    return OwnedRuntimeDashboard(runtime_registry, worker_validation_store(), worker_reputation_store())
+
+
+def artifact_manifest_from_worker_result(worker_result: dict[str, Any]) -> dict[str, Any] | None:
+    provenance = worker_result.get("validation_provenance") if isinstance(worker_result.get("validation_provenance"), dict) else {}
+    binding = worker_result.get("artifact_binding") if isinstance(worker_result.get("artifact_binding"), dict) else {}
+    metadata = binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}
+    candidates = [
+        worker_result.get("artifact_manifest"),
+        provenance.get("artifact_manifest"),
+        metadata.get("artifact_manifest"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict):
+            return candidate
+    return None
 
 
 @app.get("/")
@@ -250,6 +331,11 @@ def health() -> dict:
     return get_health(APP_VERSION)
 
 
+@app.get("/local/gpu")
+def local_gpu() -> dict:
+    return detect_gpu()
+
+
 @app.get("/ready")
 def ready() -> dict:
     status = store_status(store)
@@ -280,6 +366,11 @@ def dashboard_jobs(limit: int = 20) -> dict:
 @app.get("/dashboard/models")
 def dashboard_models(limit: int = 20) -> dict:
     return dashboard.model_versions(limit=limit)
+
+
+@app.get("/dashboard/owned-runtime")
+def dashboard_owned_runtime(limit: int = 20) -> dict:
+    return owned_runtime_dashboard().summary(limit=limit)
 
 
 @app.get("/reputation/leaderboard")
@@ -379,6 +470,26 @@ def list_training_jobs(limit: int = 50) -> dict:
     return {"jobs": [job for job in store.list_jobs(limit=limit) if job["type"] in TRAINING_JOB_TYPES]}
 
 
+@app.post("/training/jobs/{job_id}/export")
+def export_training_job_route(job_id: str) -> dict:
+    try:
+        return {"ok": True, "export": export_training_job(job_id, store=store)}
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 404 if "not found" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@app.post("/training/pipeline/run")
+def run_training_pipeline_route(body: TrainingPipelineRequest) -> dict:
+    try:
+        return run_training_pipeline(body.job_id, core_path=body.core_path, work_dir=body.work_dir, store=store)
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 404 if "not found" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
 @app.post("/training/plan")
 def plan_training(body: TrainingPlanRequest) -> dict:
     plan = training.plan(body.kind, body.owner, body.dataset_uri, body.base_model, body.budget_steps, body.private)
@@ -449,6 +560,26 @@ def runtime_status() -> dict:
     return runtime_registry.status()
 
 
+@app.post("/worker-results/validate")
+def validate_worker_result_route(body: WorkerResultValidationRequest) -> dict:
+    return {
+        "ok": True,
+        "receipt": validate_worker_result(
+            body.worker_result,
+            artifact_manifest=body.artifact_manifest,
+            sample_size=body.sample_size,
+            store=worker_validation_store(),
+            reputation=worker_reputation_store() if body.apply_reputation else None,
+            apply_reputation=body.apply_reputation,
+        ),
+    }
+
+
+@app.get("/worker-results/validations")
+def list_worker_result_validations(node_id: str | None = None, limit: int = 100) -> dict:
+    return {"receipts": worker_validation_store().list(node_id=node_id, limit=limit)}
+
+
 @app.post("/ailovanta/v1/run")
 def ailovanta_run(body: AilovantaRunRequest) -> dict:
     route = {"assigned": False, "reason": "runtime routing not requested"}
@@ -472,13 +603,94 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
     conversations.add_message(convo["id"], "user", body.prompt, source="user", model_id=body.model_id)
     recent_messages = conversations.list_messages(convo["id"], limit=24)
     context_messages = build_chat_context(recent_messages, body.prompt, max_messages=12)
+
+    owned_required = require_owned_chat()
+    owned_error = None
+    if owned_required or prefer_owned_chat():
+        from api.owned_model_runtime import OwnedModelRequest, OwnedModelRuntime, OwnedModelUnavailable
+
+        owned_model_id, owned_version = owned_model_target(body.model_id, body.version)
+        try:
+            result = OwnedModelRuntime(runtime_registry).generate(
+                OwnedModelRequest(
+                    prompt=body.prompt,
+                    model_id=owned_model_id,
+                    version=owned_version,
+                    user_id=body.user_id,
+                    conversation_id=convo["id"],
+                )
+            )
+        except OwnedModelUnavailable as exc:
+            owned_error = str(exc)
+            if owned_required:
+                answer = "Ailovanta owned model runtime is not ready: " + owned_error
+                assistant_message = conversations.add_message(convo["id"], "assistant", answer, source="owned-runtime-unavailable", model_id=owned_model_id)
+                return {
+                    "conversation_id": convo["id"],
+                    "answer": answer,
+                    "source": "owned-runtime-unavailable",
+                    "runtime_route": {"assigned": False, "reason": owned_error},
+                    "assistant_message": assistant_message,
+                    "context_messages_used": len(context_messages),
+                    "owned_model_ready": False,
+                    "model_id": owned_model_id,
+                    "version": owned_version,
+                    "fallback_allowed": False,
+                }
+        else:
+            worker_validation = validate_worker_result(
+                result.worker_result,
+                artifact_manifest=artifact_manifest_from_worker_result(result.worker_result),
+                store=worker_validation_store(),
+                reputation=worker_reputation_store(),
+                apply_reputation=True,
+            )
+            assistant_message = conversations.add_message(convo["id"], "assistant", result.answer, source=result.source, model_id=result.model_id)
+            usage_store.record(
+                body.user_id,
+                "ailovanta.chat.owned",
+                1,
+                result.source,
+                {
+                    "conversation_id": convo["id"],
+                    "model_id": result.model_id,
+                    "version": result.version,
+                    "context_messages": len(context_messages),
+                    "worker_validation_receipt_id": worker_validation["receipt_id"],
+                    "worker_validation_passed": worker_validation["passed"],
+                    "owned_selection": "preferred" if not owned_required else "required",
+                },
+            )
+            return {
+                "conversation_id": convo["id"],
+                "answer": result.answer,
+                "source": result.source,
+                "runtime_route": result.runtime_route,
+                "worker_validation": worker_validation,
+                "assistant_message": assistant_message,
+                "context_messages_used": len(context_messages),
+                "owned_model_ready": True,
+                "model_id": result.model_id,
+                "version": result.version,
+            }
+
     route = {"assigned": False, "reason": "runtime routing not requested"}
     if body.use_runtime_router:
         route = runtime_registry.route(RuntimeRequest(request_id=f"chat-{convo['id']}", model_id=body.model_id, version=body.version, region_hint="auto"))
     answer, source = answer_with_ollama(body.prompt, context_messages)
     assistant_message = conversations.add_message(convo["id"], "assistant", answer, source=source, model_id=body.model_id)
-    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id, "context_messages": len(context_messages)})
-    return {"conversation_id": convo["id"], "answer": answer, "source": source, "runtime_route": route, "assistant_message": assistant_message, "context_messages_used": len(context_messages)}
+    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id, "context_messages": len(context_messages), "owned_runtime_error": owned_error})
+    return {
+        "conversation_id": convo["id"],
+        "answer": answer,
+        "source": source,
+        "runtime_route": route,
+        "assistant_message": assistant_message,
+        "context_messages_used": len(context_messages),
+        "owned_model_ready": False,
+        "owned_runtime_error": owned_error,
+        "fallback_allowed": True,
+    }
 
 
 @app.get("/ailovanta/v1/conversations")

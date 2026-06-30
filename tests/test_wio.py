@@ -1,5 +1,5 @@
 from api.wc import make_result, make_task
-from api.wio import task_envelope
+from api.wio import task_envelope, verify_task_envelope
 
 
 def test_make_task() -> None:
@@ -17,3 +17,13 @@ def test_make_result() -> None:
 def test_task_envelope() -> None:
     item = task_envelope({"plan_id": "p1"}, "n1", "in", "out")
     assert item["kind"] == "worker_task"
+    assert item["task"]["task_proof"]["schema_version"] == "ailovanta.task_proof.v1"
+    assert verify_task_envelope(item)["ok"] is True
+
+
+def test_task_envelope_detects_tampering() -> None:
+    item = task_envelope({"plan_id": "p1"}, "n1", "in", "out")
+    item["task"]["node_id"] = "n2"
+    checked = verify_task_envelope(item)
+    assert checked["ok"] is False
+    assert checked["reason"] == "task_hash_mismatch"

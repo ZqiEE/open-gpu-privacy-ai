@@ -1,8 +1,8 @@
 # Training Jobs
 
-v0.9 adds training job creation and model version registration.
+v1.13 extends training jobs with a public/core bridge export and local pipeline runner.
 
-Training jobs are metadata records until the public/core bridge runs them through `ailovanta-core`.
+Training jobs start as public metadata records, then can be exported and run through `ailovanta-core`.
 
 ## Training job kinds
 
@@ -29,9 +29,60 @@ curl -X POST http://127.0.0.1:8000/models/versions \
   -d '{"name":"ailovanta-v0.1-local","base_model":"ailovanta-bootstrap:local","source_job_id":"train_xxxxxxxx"}'
 ```
 
+## Export one training job for core
+
+API:
+
+```bash
+curl -X POST http://127.0.0.1:8000/training/jobs/train_xxxxxxxx/export
+```
+
+CLI:
+
+```bash
+python scripts/export_training_job.py train_xxxxxxxx --output-dir runtime_data/training_exports
+```
+
+The exported JSON uses:
+
+```text
+schema_version: ailovanta.training_job.v1
+```
+
+## Run the local training pipeline
+
+CLI:
+
+```bash
+python scripts/run_training_pipeline.py train_xxxxxxxx --core-path ../ailovanta-core
+```
+
+API:
+
+```text
+POST /training/pipeline/run
+```
+
+Payload:
+
+```json
+{
+  "job_id": "train_xxxxxxxx",
+  "core_path": "../ailovanta-core",
+  "work_dir": "runtime_data/training_pipeline"
+}
+```
+
+Result:
+
+```text
+export_path
+core_result
+model_version
+```
+
 ## Next steps
 
-- Public/core file bridge
 - Real RAG importer
 - LoRA/QLoRA worker integration
 - Model artifact paths

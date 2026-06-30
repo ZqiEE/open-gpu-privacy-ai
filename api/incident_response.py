@@ -35,8 +35,8 @@ class IncidentResponse:
         self.log_root = Path(log_root)
         self.log_root.mkdir(parents=True, exist_ok=True)
 
-    def plan(self, route_key: str = DEFAULT_ROUTE_KEY, verify_bytes: bool = False) -> dict[str, Any]:
-        summary = self.alerts.collect(route_key=route_key, verify_bytes=verify_bytes)
+    def plan(self, route_key: str = DEFAULT_ROUTE_KEY, verify_bytes: bool = False, verify_distribution: bool = False, verify_chain: bool = False) -> dict[str, Any]:
+        summary = self.alerts.collect(route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
         active_alerts = [item for item in summary.get("alerts", []) if actionable(item)]
         actions: list[dict[str, Any]] = []
         if not active_alerts:
@@ -47,10 +47,10 @@ class IncidentResponse:
                 actions.append({"action": ACTION_DISABLE_ROUTE, "route_key": route_key, "reason": "route_related_alert"})
             else:
                 actions.append({"action": ACTION_BACKUP_ONLY, "reason": "non_route_alerts"})
-        return {"ok": not active_alerts, "route_key": route_key, "verify_bytes": verify_bytes, "alerts": active_alerts, "actions": actions, "summary": summary}
+        return {"ok": not active_alerts, "route_key": route_key, "verify_bytes": verify_bytes, "verify_distribution": verify_distribution, "verify_chain": verify_chain, "alerts": active_alerts, "actions": actions, "summary": summary}
 
-    def execute(self, route_key: str = DEFAULT_ROUTE_KEY, verify_bytes: bool = False, dry_run: bool = True) -> dict[str, Any]:
-        plan = self.plan(route_key=route_key, verify_bytes=verify_bytes)
+    def execute(self, route_key: str = DEFAULT_ROUTE_KEY, verify_bytes: bool = False, verify_distribution: bool = False, verify_chain: bool = False, dry_run: bool = True) -> dict[str, Any]:
+        plan = self.plan(route_key=route_key, verify_bytes=verify_bytes, verify_distribution=verify_distribution, verify_chain=verify_chain)
         incident_id = "incident_" + uuid4().hex[:12]
         results: list[dict[str, Any]] = []
         for action in plan.get("actions", []):

@@ -15,6 +15,8 @@ Implemented:
 - Queue recovery
 - Verification records
 - Training job API
+- Signed worker task envelopes
+- Signed worker result proof checks
 - Model version registry
 - Docker / Compose
 - Tests / CI
@@ -40,11 +42,12 @@ https://github.com/ZqiEE/ailovanta-core.git
 2. Keep core network logic in Ailovanta Core.
 3. Replace SQLite with PostgreSQL behind the same `SchedulerStore` interface.
 4. Add Redis-style queue locking.
-5. Add signed task payloads.
-6. Add real RAG importer.
-7. Add LoRA/QLoRA worker integration.
-8. Add OpenAPI examples to each endpoint.
-9. Add a production dashboard for scheduler status and node health.
+5. Add a production dashboard for scheduler status and node health.
+6. Add storage replica tracking.
+7. Add reward / reputation updates from verified worker results.
+8. Add real RAG importer.
+9. Add LoRA/QLoRA worker integration.
+10. Add OpenAPI examples to each endpoint.
 
 ## Avoid for now
 

@@ -72,9 +72,80 @@ worker receives task envelope
 -> worker submits checkpoint_uri + checkpoint_hash + node_proof
 -> verifier checks proof and digest
 -> promotion gate emits receipt
+-> import builds chunk manifest and replica book entry
+-> replica repair planner creates storage repair tasks for weak chunks
 -> anchor adapter anchors receipt hash
 -> runtime node loads by artifact URI / manifest
 ```
+
+## Model artifact anti-theft rule
+
+Large model artifacts must not be distributed as a naked model directory.
+
+Directory-shaped model outputs, such as Transformers or LoRA folders, are sealed before distribution:
+
+```text
+model directory
+-> tar package in temporary workspace
+-> AES-256-GCM encrypted chunks
+-> secure artifact manifest
+-> replica_book entry over encrypted chunk hashes
+-> encrypted chunk replicas under storage nodes
+```
+
+The secure manifest records encrypted artifact hash, plaintext artifact hash, encrypted chunk hashes, plaintext chunk hashes, nonce per chunk, `key_id`, and `anti_theft.key_in_manifest=false`.
+
+The manifest must not contain key material. Storage nodes receive encrypted chunks only. Runtime nodes can reconstruct the model only after an authorized key-release step gives them the artifact key. This keeps distributed storage useful for availability without turning every storage replica into a raw model leak.
+
+Local implementation:
+
+```text
+api/secure_artifact_pack.py
+runtime_data/secure_artifacts/<storage-node>/<artifact-id>/chunk_000000.enc
+runtime_data/artifact_manifests/<artifact-id>.secure.manifest.json
+runtime_data/replica_book.json
+```
+
+Set the local sealing key with:
+
+```text
+AILOVANTA_ARTIFACT_ENCRYPTION_KEY=<base64 AES key>
+```
+
+Generate a development key through `api.secure_artifact_pack.generate_artifact_key()`. Production must replace this with node/tenant-bound key release, not a shared plaintext environment variable.
+
+## Replica repair loop
+
+The distribution gate can block a route when the replica book reports under-replicated chunks. The repair loop turns that blocker into storage work:
+
+```text
+replica_book.json
+-> scan under-replicated chunks
+-> create storage_replica_repair tasks
+-> storage node copies chunk to target location
+-> task completion adds the copy to replica_book
+-> route health distribution gate can pass
+```
+
+CLI:
+
+```bash
+python scripts/replica_repair.py plan --target-node storage-2
+python scripts/replica_repair.py list --status queued
+python scripts/replica_repair.py complete <task_id>
+python scripts/run_replica_maintenance.py --loop
+```
+
+API:
+
+```text
+POST /replicas/repair/plan
+GET  /replicas/repair/tasks
+POST /replicas/repair/tasks/{task_id}/assign
+POST /replicas/repair/tasks/{task_id}/complete
+```
+
+Current local maintenance performs a real local chunk copy when the source artifact is available as `file://...`: it slices the source artifact chunk, verifies the chunk sha256, writes it under `runtime_data/storage_replicas/`, and then completes the repair task. Production storage workers must perform the equivalent real transfer to their own storage before submitting completion.
 
 ## Server role
 

@@ -7,6 +7,8 @@ from pathlib import Path
 from api.code_training_jobs import CodeTrainingJobStore
 from api.rights_proof_registry import RightsProofRegistry
 
+TRAINING_JOB_SCHEMA = "ailovanta.training_job.v1"
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Export an Ailovanta-Code distributed training job")
@@ -33,7 +35,19 @@ def main() -> int:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"ok": True, "output": str(output), "job_id": job["job_id"], "distributed_required": job["distributed_required"]}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "output": str(output),
+                "job_id": job["job_id"],
+                "schema_version": TRAINING_JOB_SCHEMA,
+                "distributed_required": job["distributed_required"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 

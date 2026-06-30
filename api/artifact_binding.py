@@ -122,6 +122,16 @@ class ArtifactBindingStore:
             row = conn.execute(query, params).fetchone()
         return self._api_row(dict(row)) if row else None
 
+    def latest_for_model_statuses(self, model_key: str, statuses: list[str] | tuple[str, ...]) -> dict[str, Any] | None:
+        if not statuses:
+            return None
+        placeholders = ",".join("?" for _ in statuses)
+        query = f"SELECT * FROM artifact_bindings WHERE model_key = ? AND status IN ({placeholders}) ORDER BY created_at DESC LIMIT 1"
+        params: list[Any] = [model_key, *statuses]
+        with self.connect() as conn:
+            row = conn.execute(query, params).fetchone()
+        return self._api_row(dict(row)) if row else None
+
     def list_bindings(self, limit: int = 100) -> list[dict[str, Any]]:
         with self.connect() as conn:
             rows = conn.execute("SELECT * FROM artifact_bindings ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
@@ -130,6 +140,11 @@ class ArtifactBindingStore:
     def set_status(self, binding_id: str, status: str) -> dict[str, Any] | None:
         with self.connect() as conn:
             conn.execute("UPDATE artifact_bindings SET status = ? WHERE binding_id = ?", (status, binding_id))
+        return self.get(binding_id)
+
+    def update_metadata(self, binding_id: str, metadata: dict[str, Any]) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            conn.execute("UPDATE artifact_bindings SET metadata_json = ? WHERE binding_id = ?", (json.dumps(metadata, ensure_ascii=False), binding_id))
         return self.get(binding_id)
 
     @staticmethod
