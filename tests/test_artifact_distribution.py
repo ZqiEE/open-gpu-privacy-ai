@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from api.artifact_distribution import distribution_metadata, prepare_local_artifact_distribution
 from api.secure_artifact_pack import generate_artifact_key
 
@@ -32,6 +34,7 @@ def test_prepare_local_artifact_distribution(tmp_path: Path) -> None:
 
 
 def test_prepare_local_artifact_distribution_seals_model_directory(tmp_path: Path, monkeypatch) -> None:
+    pytest.importorskip("cryptography")
     model_dir = tmp_path / "model-dir"
     model_dir.mkdir()
     (model_dir / "config.json").write_text('{"model_type":"ailovanta"}', encoding="utf-8")

@@ -11,7 +11,10 @@ from time import time
 from typing import Any
 from uuid import uuid4
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+except Exception:  # pragma: no cover - CI/minimal installs may omit optional crypto.
+    AESGCM = None  # type: ignore[assignment]
 
 from api.chunk_manifest import manifest_hash
 from api.replica_book import add_manifest, status as replica_status
@@ -25,7 +28,7 @@ class SecureArtifactError(RuntimeError):
 
 
 def generate_artifact_key() -> str:
-    return base64.urlsafe_b64encode(AESGCM.generate_key(bit_length=256)).decode("ascii")
+    return base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")
 
 
 def package_secure_model_directory(
@@ -42,6 +45,7 @@ def package_secure_model_directory(
     source = Path(model_dir)
     if not source.exists() or not source.is_dir():
         raise SecureArtifactError("model_dir must be an existing directory")
+    _require_crypto()
     artifact_id = "artifact_secure_" + uuid4().hex[:12]
     aes_key = _resolve_key(key)
     out_root = Path(output_root)
@@ -86,6 +90,7 @@ def restore_secure_model_directory(
     key: str | bytes | None = None,
 ) -> dict[str, Any]:
     payload = _load_manifest(manifest)
+    _require_crypto()
     aes_key = _resolve_key(key)
     chunks = payload.get("chunks") if isinstance(payload.get("chunks"), list) else []
     if not chunks:
@@ -101,7 +106,7 @@ def restore_secure_model_directory(
                 encrypted = encrypted_path.read_bytes()
                 if _sha256(encrypted) != chunk.get("sha256"):
                     raise SecureArtifactError("encrypted chunk hash mismatch: " + str(chunk.get("chunk_id")))
-                plaintext = AESGCM(aes_key).decrypt(
+                plaintext = AESGCM(aes_key).decrypt(  # type: ignore[operator]
                     base64.b64decode(str(chunk["nonce"])),
                     encrypted,
                     _aad(payload["artifact_id"], int(chunk["index"]), str(chunk["plaintext_sha256"])),
@@ -137,7 +142,7 @@ def _encrypt_tar_to_chunks(
                 break
             plaintext_hash = _sha256(plaintext)
             nonce = os.urandom(12)
-            encrypted = AESGCM(aes_key).encrypt(nonce, plaintext, _aad(artifact_id, index, plaintext_hash))
+            encrypted = AESGCM(aes_key).encrypt(nonce, plaintext, _aad(artifact_id, index, plaintext_hash))  # type: ignore[operator]
             encrypted_hash = _sha256(encrypted)
             plaintext_artifact_hash.update(plaintext)
             encrypted_artifact_hash.update(encrypted)
@@ -192,6 +197,11 @@ def _resolve_key(value: str | bytes | None) -> bytes:
     if len(key) not in {16, 24, 32}:
         raise SecureArtifactError("artifact encryption key must be 128, 192, or 256 bits")
     return key
+
+
+def _require_crypto() -> None:
+    if AESGCM is None:
+        raise SecureArtifactError("cryptography package is required for sealed model artifacts")
 
 
 def _write_tar(source: Path, target: Path) -> None:

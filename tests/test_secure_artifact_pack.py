@@ -6,6 +6,8 @@ import pytest
 from api.replica_book import status as replica_status
 from api.secure_artifact_pack import generate_artifact_key, package_secure_model_directory, restore_secure_model_directory
 
+pytest.importorskip("cryptography")
+
 
 def test_secure_model_directory_package_encrypts_chunks_and_restores(tmp_path: Path) -> None:
     model_dir = tmp_path / "model"
