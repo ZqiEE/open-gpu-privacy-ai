@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from api.candidate_failure_actions import mark_action_submitted
 from api.gpu_probe import detect_gpu
 from api.model_job import run_model_job
 from api.training_artifact_binding import bind_local_training_artifact
@@ -49,6 +50,24 @@ def try_post(server: str, path: str, body: dict[str, Any]) -> dict[str, Any] | N
         if exc.code == 404:
             return None
         raise
+
+
+def submit_failure_actions(server: str, binding: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not binding:
+        return []
+    metadata = binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}
+    failure_actions = metadata.get("failure_actions") if isinstance(metadata.get("failure_actions"), dict) else {}
+    submitted: list[dict[str, Any]] = []
+    for action in failure_actions.get("actions", []) or []:
+        if action.get("action_type") != "training_retrain" or action.get("status") != "queued":
+            continue
+        request = action.get("training_job_request") if isinstance(action.get("training_job_request"), dict) else {}
+        if not request.get("dataset_uri"):
+            continue
+        response = post(server, "/training/jobs", request)
+        marked = mark_action_submitted(str(action.get("action_id")), response)
+        submitted.append({"action_id": action.get("action_id"), "response": response, "marked": marked})
+    return submitted
 
 
 def connection_unavailable(exc: Exception) -> bool:
@@ -137,7 +156,8 @@ def main() -> int:
             summary = f"node finished task on {profile['device_name']}; output={output['location']}"
             result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
             binding = bind_local_training_artifact(output)
-            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding}, ensure_ascii=False, indent=2))
+            failure_action_submissions = submit_failure_actions(args.server, binding)
+            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding, "failure_action_submissions": failure_action_submissions}, ensure_ascii=False, indent=2))
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
         elif args.once:
             print(json.dumps({"ok": True, "node_id": node_id, "message": "no job"}, ensure_ascii=False))

@@ -3,7 +3,7 @@ import urllib.error
 from pathlib import Path
 
 from api.model_job import resolve_dataset_path, run_model_job
-from api.node_client import make_output, try_post
+from api.node_client import make_output, submit_failure_actions, try_post
 from api.training_artifact_binding import bind_local_training_artifact
 
 
@@ -150,6 +150,7 @@ def test_bind_local_training_artifact_keeps_under_replicated_artifact_candidate(
     assert binding["status"] == "candidate"
     assert binding["metadata"]["promotion_gate"]["ok"] is False
     assert "artifact_distribution:replica_book_under_replicated" in binding["metadata"]["promotion_gate"]["blockers"]
+    assert binding["metadata"]["failure_actions"]["actions"] == []
 
 
 def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:
@@ -159,3 +160,42 @@ def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:
     monkeypatch.setattr("api.node_client.post", missing)
 
     assert try_post("http://test", "/catalog/items", {"name": "x"}) is None
+
+
+def test_node_client_submits_candidate_failure_retrain_action(monkeypatch) -> None:
+    posted = []
+
+    def fake_post(server: str, path: str, body: dict):
+        posted.append({"server": server, "path": path, "body": body})
+        return {"ok": True, "job": {"id": "train_retry_1", "status": "queued"}}
+
+    monkeypatch.setattr("api.node_client.post", fake_post)
+    monkeypatch.setattr("api.node_client.mark_action_submitted", lambda action_id, response: {"action_id": action_id, "status": "submitted", "response": response})
+
+    binding = {
+        "metadata": {
+            "failure_actions": {
+                "actions": [
+                    {
+                        "action_id": "candidate_action_1",
+                        "action_type": "training_retrain",
+                        "status": "queued",
+                        "training_job_request": {
+                            "kind": "lora_micro",
+                            "name": "retry",
+                            "dataset_uri": "file:///tmp/train.jsonl",
+                            "base_model": "ailovanta-base",
+                            "max_steps": 64,
+                            "notes": "retry",
+                        },
+                    }
+                ]
+            }
+        }
+    }
+
+    submitted = submit_failure_actions("http://api", binding)
+
+    assert posted[0]["path"] == "/training/jobs"
+    assert posted[0]["body"]["name"] == "retry"
+    assert submitted[0]["marked"]["status"] == "submitted"

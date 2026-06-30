@@ -15,5 +15,6 @@ def test_show_full_auto_status_outputs_json(capsys) -> None:
     assert "latest_owned_candidate" in payload
     assert "replica_status" in payload
     assert "continuous_training" in payload
+    assert "candidate_failure_actions" in payload
     assert "jobs" in payload
     assert "nodes" in payload

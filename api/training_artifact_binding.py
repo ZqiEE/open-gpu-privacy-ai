@@ -6,6 +6,7 @@ from typing import Any
 
 from api.artifact_binding import ArtifactBindingStore
 from api.artifact_distribution import distribution_metadata, prepare_local_artifact_distribution
+from api.candidate_failure_actions import plan_failure_actions
 from api.replica_maintenance import run_replica_maintenance_once
 from api.training_artifact_gate import evaluate_training_artifact_binding
 
@@ -25,6 +26,7 @@ def bind_local_training_artifact(
     auto_repair_replicas: bool = True,
     replica_tasks_path: str | Path = "runtime_data/replica_repair_tasks.json",
     replica_storage_root: str | Path = "runtime_data/storage_replicas",
+    failure_actions_path: str | Path = "runtime_data/candidate_failure_actions.json",
 ) -> dict[str, Any] | None:
     location = Path(str(output.get("location") or ""))
     model_path = location / "ngram_model.json"
@@ -85,6 +87,8 @@ def bind_local_training_artifact(
     )
     gate = evaluate_training_artifact_binding(binding, model_path=model_path, replica_book_path=replica_book_path)
     updated_metadata = {**binding.get("metadata", {}), "promotion_gate": gate}
+    if not gate.get("ok"):
+        updated_metadata["failure_actions"] = plan_failure_actions(binding, gate, action_path=failure_actions_path)
     binding = store.update_metadata(binding["binding_id"], updated_metadata) or binding
     if gate.get("ok"):
         binding = store.set_status(binding["binding_id"], "active") or binding

@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from api.artifact_binding import ArtifactBindingStore
+from api.candidate_failure_actions import action_summary
 from api.continuous_training_ledger import ledger_summary, load_ledger, sync_ledger_with_jobs
 from api.gpu_probe import detect_gpu
 from api.github_source_frontier import load_frontier
@@ -56,6 +57,7 @@ def main() -> int:
             "top_queries": source_queries,
         },
         "continuous_training": ledger_summary(training_ledger),
+        "candidate_failure_actions": action_summary(ROOT / "runtime_data" / "candidate_failure_actions.json"),
         "jobs": jobs[:10],
         "nodes": scheduler.list_nodes(limit=10),
     }
