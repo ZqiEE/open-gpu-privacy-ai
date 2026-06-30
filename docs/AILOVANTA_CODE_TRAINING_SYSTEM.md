@@ -335,6 +335,8 @@ python scripts/run_autonomous_code_training_loop.py \
   --repair-backend-ref file://runtime_data/checkpoints/checkpoint.bin
 ```
 
+If `--repair-backend-ref` is omitted, the autonomous loop reuses `runtime_data/autonomous_code_loop/latest_repair_backend_ref.json` when present. After a foundation run completes, the loop extracts the imported artifact `backend_ref` or `checkpoint_uri` and updates that file for the next run.
+
 The repair loop:
 
 ```text
@@ -408,6 +410,7 @@ source manifest / GitHub discovery
 -> foundation job
 -> core checkpoint execution
 -> public foundation import/runtime binding
+-> latest_repair_backend_ref.json for the next repair round
 -> run.json audit report
 ```
 

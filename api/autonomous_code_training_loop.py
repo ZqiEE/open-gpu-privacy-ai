@@ -16,6 +16,8 @@ from api.verified_code_foundation import create_job_from_verified_code_export
 from api.verified_code_samples import export_samples_from_reports
 from node_client.code_task_runner import run_code_instruction_task
 
+LATEST_BACKEND_REF_SCHEMA = "ailovanta.autonomous_code_latest_backend_ref.v1"
+
 
 class AutonomousCodeTrainingLoop:
     """Runs Ailovanta-Code's self-learning path from sources to verified training."""
@@ -50,6 +52,7 @@ class AutonomousCodeTrainingLoop:
         run_id = "auto_code_" + uuid4().hex[:12]
         run_dir = self.runs_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+        repair_backend = self._resolve_repair_backend_ref(repair_backend_ref)
 
         source_manifest = Path(sources_path)
         discovery = self._maybe_discover(source_manifest, enabled=discover)
@@ -86,7 +89,7 @@ class AutonomousCodeTrainingLoop:
                 repairs_path,
                 max_candidates_per_failure=max_repair_candidates,
                 candidate_command=repair_candidate_command,
-                backend_ref=repair_backend_ref,
+                backend_ref=repair_backend.get("backend_ref"),
             )
             if repair_failures
             else self._write_empty_repairs(repairs_path)
@@ -119,6 +122,13 @@ class AutonomousCodeTrainingLoop:
                 training_command=training_command,
             )
             foundation = {"job": job, "pipeline": pipeline}
+            latest_backend_ref = extract_backend_ref_from_pipeline(foundation)
+            if latest_backend_ref:
+                foundation["latest_backend_ref"] = self._write_latest_backend_ref(
+                    latest_backend_ref,
+                    run_id=run_id,
+                    foundation=foundation,
+                )
             stage = "foundation_pipeline_complete"
         elif not ok:
             stage = "no_verified_samples"
@@ -138,6 +148,7 @@ class AutonomousCodeTrainingLoop:
                 "verified_samples": str(verified_path),
                 "failed_samples": str(failures_path),
                 "repairs": str(repairs_path),
+                "latest_backend_ref": str(self.latest_backend_ref_path),
             },
             "discovery": discovery,
             "ingest": self._compact_ingest(ingest),
@@ -150,6 +161,7 @@ class AutonomousCodeTrainingLoop:
             "verified": {key: value for key, value in verified.items() if key != "samples"},
             "failures": {key: value for key, value in failures.items() if key != "samples"},
             "repairs": {key: value for key, value in repairs.items() if key not in {"attempts", "preference_pairs", "verified_report_items"}},
+            "repair_backend_ref": repair_backend,
             "foundation": foundation,
             "created_at": round(time(), 3),
         }
@@ -162,6 +174,10 @@ class AutonomousCodeTrainingLoop:
 
     def list_runs(self) -> list[dict[str, Any]]:
         return [json.loads(path.read_text(encoding="utf-8")) for path in sorted(self.runs_dir.glob("*/run.json"))]
+
+    @property
+    def latest_backend_ref_path(self) -> Path:
+        return self.root / "latest_repair_backend_ref.json"
 
     def _write_run(self, payload: dict[str, Any]) -> None:
         run_dir = self.runs_dir / payload["run_id"]
@@ -208,6 +224,50 @@ class AutonomousCodeTrainingLoop:
         keys = ["ok", "sources", "accepted_sources", "records", "bytes", "languages", "corpus_output", "rights_path", "corpus_mode"]
         return {key: ingest.get(key) for key in keys}
 
+    def _resolve_repair_backend_ref(self, explicit_ref: str | None) -> dict[str, Any]:
+        if explicit_ref:
+            return {"backend_ref": explicit_ref, "source": "explicit"}
+        latest = self._read_latest_backend_ref()
+        if latest.get("backend_ref"):
+            return {
+                "backend_ref": latest["backend_ref"],
+                "source": "latest_foundation_artifact",
+                "latest": latest,
+            }
+        return {"backend_ref": None, "source": "none"}
+
+    def _read_latest_backend_ref(self) -> dict[str, Any]:
+        path = self.latest_backend_ref_path
+        if not path.exists():
+            return {}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {}
+        if payload.get("schema_version") != LATEST_BACKEND_REF_SCHEMA:
+            return {}
+        return payload
+
+    def _write_latest_backend_ref(self, backend_ref: str, run_id: str, foundation: dict[str, Any]) -> dict[str, Any]:
+        artifact = ((foundation.get("pipeline") or {}).get("foundation_result") or {}).get("artifact")
+        if not isinstance(artifact, dict):
+            artifact = ((foundation.get("pipeline") or {}).get("import_result") or {}).get("artifact_binding") or {}
+        payload = {
+            "schema_version": LATEST_BACKEND_REF_SCHEMA,
+            "backend_ref": backend_ref,
+            "run_id": run_id,
+            "model_id": artifact.get("model_id"),
+            "version": artifact.get("version"),
+            "artifact_hash": artifact.get("artifact_hash"),
+            "artifact_id": artifact.get("artifact_id"),
+            "backend_kind": artifact.get("backend_kind"),
+            "result_path": (foundation.get("pipeline") or {}).get("result_path"),
+            "created_at": round(time(), 3),
+        }
+        self.latest_backend_ref_path.parent.mkdir(parents=True, exist_ok=True)
+        self.latest_backend_ref_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return payload
+
     @staticmethod
     def _write_empty_repairs(output_path: Path) -> dict[str, Any]:
         payload = {
@@ -243,3 +303,25 @@ def candidate_files_for_record(record: dict[str, Any], max_files: int = 64, max_
         if len(candidates) >= max_files:
             break
     return candidates
+
+
+def extract_backend_ref_from_pipeline(foundation: dict[str, Any]) -> str | None:
+    pipeline = foundation.get("pipeline") if isinstance(foundation.get("pipeline"), dict) else {}
+    import_result = pipeline.get("import_result") if isinstance(pipeline.get("import_result"), dict) else {}
+    binding = import_result.get("artifact_binding") if isinstance(import_result.get("artifact_binding"), dict) else {}
+    if binding.get("backend_ref"):
+        return str(binding["backend_ref"])
+    result_path = pipeline.get("result_path")
+    if result_path:
+        try:
+            payload = json.loads(Path(result_path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+        artifact = payload.get("artifact") if isinstance(payload.get("artifact"), dict) else {}
+        if artifact.get("backend_ref"):
+            pipeline["foundation_result"] = payload
+            return str(artifact["backend_ref"])
+        if artifact.get("checkpoint_uri"):
+            pipeline["foundation_result"] = payload
+            return str(artifact["checkpoint_uri"])
+    return None

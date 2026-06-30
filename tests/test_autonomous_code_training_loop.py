@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from api.autonomous_code_training_loop import AutonomousCodeTrainingLoop, candidate_files_for_record
+from api.autonomous_code_training_loop import AutonomousCodeTrainingLoop, candidate_files_for_record, extract_backend_ref_from_pipeline
 
 
 def make_repo(root: Path) -> None:
@@ -158,3 +158,46 @@ def test_autonomous_code_training_loop_repairs_failed_tasks(tmp_path: Path) -> N
     assert result["failures"]["count"] == 1
     assert result["repairs"]["repaired"] == 1
     assert result["verified"]["count"] == 1
+
+
+def test_extract_backend_ref_from_pipeline_result_path(tmp_path: Path) -> None:
+    result_path = tmp_path / "foundation_result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "artifact": {
+                    "backend_ref": "file:///tmp/checkpoint.bin",
+                    "checkpoint_uri": "artifact://fallback",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    foundation = {"pipeline": {"result_path": str(result_path)}}
+
+    assert extract_backend_ref_from_pipeline(foundation) == "file:///tmp/checkpoint.bin"
+    assert foundation["pipeline"]["foundation_result"]["artifact"]["backend_ref"] == "file:///tmp/checkpoint.bin"
+
+
+def test_autonomous_loop_persists_and_reuses_latest_backend_ref(tmp_path: Path) -> None:
+    loop = AutonomousCodeTrainingLoop(core_path=tmp_path / "missing-core", root=tmp_path / "loop")
+    saved = loop._write_latest_backend_ref(
+        "file:///tmp/model-or-checkpoint",
+        run_id="auto_code_prev",
+        foundation={"pipeline": {"result_path": "runtime_data/foundation_result.json"}},
+    )
+
+    resolved = loop._resolve_repair_backend_ref(None)
+
+    assert saved["schema_version"] == "ailovanta.autonomous_code_latest_backend_ref.v1"
+    assert resolved["backend_ref"] == "file:///tmp/model-or-checkpoint"
+    assert resolved["source"] == "latest_foundation_artifact"
+
+
+def test_autonomous_loop_explicit_backend_ref_overrides_latest(tmp_path: Path) -> None:
+    loop = AutonomousCodeTrainingLoop(core_path=tmp_path / "missing-core", root=tmp_path / "loop")
+    loop._write_latest_backend_ref("file:///tmp/old", run_id="old", foundation={"pipeline": {}})
+
+    resolved = loop._resolve_repair_backend_ref("file:///tmp/new")
+
+    assert resolved == {"backend_ref": "file:///tmp/new", "source": "explicit"}
