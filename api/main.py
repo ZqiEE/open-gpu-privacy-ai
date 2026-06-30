@@ -15,6 +15,7 @@ from api.conversation_context import build_chat_context
 from api.conversation_store import ConversationStore
 from api.dashboard import DashboardService
 from api.github_auth import GitHubAuthConfigError, build_github_login_url, exchange_code_for_token, fetch_github_profile
+from api.gpu_probe import detect_gpu
 from api.health import get_health
 from api.memory_store import MemoryStore
 from api.node_security import require_token
@@ -310,6 +311,11 @@ def auth_logout(authorization: str | None = Header(default=None)) -> dict:
 @app.get("/health")
 def health() -> dict:
     return get_health(APP_VERSION)
+
+
+@app.get("/local/gpu")
+def local_gpu() -> dict:
+    return detect_gpu()
 
 
 @app.get("/ready")

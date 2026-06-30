@@ -220,6 +220,18 @@ API docs:  http://127.0.0.1:8000/docs
 Dashboard: http://127.0.0.1:8000/dashboard
 ```
 
+Run your machine as a local training worker in a second terminal:
+
+```powershell
+.\start_training_worker_windows.bat
+```
+
+Check whether your GPU is visible:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\show_gpu.py
+```
+
 ## Local check
 
 ```bash

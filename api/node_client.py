@@ -11,6 +11,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from api.gpu_probe import detect_gpu
+
 
 def auth_headers() -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
@@ -49,12 +51,9 @@ def detect(enable_gpu: bool) -> dict[str, Any]:
     has_gpu = False
     gpu_name = None
     if enable_gpu:
-        try:
-            import torch  # type: ignore
-            has_gpu = bool(torch.cuda.is_available())
-            gpu_name = torch.cuda.get_device_name(0) if has_gpu else None
-        except Exception:
-            pass
+        gpu = detect_gpu()
+        has_gpu = bool(gpu.get("has_gpu"))
+        gpu_name = gpu.get("gpu_name")
 
     return {
         "device_name": f"{socket.gethostname()}-{platform.system()}",
