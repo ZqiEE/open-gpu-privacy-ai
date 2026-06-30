@@ -119,7 +119,9 @@ This is the local version of the distributed model storage plan: large model fil
 
 `start_full_auto_windows.bat` also starts `scripts/run_replica_maintenance.py --loop`. The maintenance loop scans for under-replicated chunks, creates `storage_replica_repair` tasks, copies locally reachable artifact chunks into `runtime_data/storage_replicas/`, verifies each chunk hash, and marks the task complete in `replica_book.json`.
 
-Worker artifacts are registered as `candidate` first. The local promotion gate checks that the artifact is loadable, the training artifact has usable rows/transitions/loss, the dataset contains verifiable code records, code syntax checks pass, the backend can run a configured executable code-generation eval, artifact bytes match the binding hash, and the distributed replica book is healthy. Only a passing candidate is promoted to `active`; owned chat and runtime routes only use active bindings.
+Worker artifacts are registered as `candidate` first. The local promotion gate checks that the artifact is loadable, the training artifact has usable rows/transitions/loss, the dataset contains verifiable code records, code syntax checks pass, the backend can run an executable code-generation benchmark, artifact bytes match the binding hash, and the distributed replica book is healthy. Only a passing candidate is promoted to `active`; owned chat and runtime routes only use active bindings.
+
+The executable code-generation benchmark is not a text-only label. For supported generative backends (`transformers-local` and `transformers-causal-lm`), the gate loads the local model directory from `backend_ref`, asks it to produce Python implementations for benchmark tasks, writes the result into `solution.py`, and runs `python -m pytest` against hidden task tests in a temporary sandbox. The candidate must meet the configured pass score before activation. Missing model paths, missing `torch`/`transformers`, failed tests, or non-generative backends keep the artifact in `candidate` and create retrain actions when appropriate.
 
 If the gate fails, the failure is not just logged. Storage/replica blockers remain repair work for the replica maintenance loop. Model-quality/code-quality blockers such as invalid model output, too few rows/transitions, bad train loss, missing code records, syntax failures, unsupported code-generation backend, or artifact integrity failure create a `training_retrain` action in `runtime_data/candidate_failure_actions.json`. The worker submits queued retrain actions back to `/training/jobs` as `lora_micro` jobs using the same dataset lineage.
 
@@ -166,7 +168,7 @@ continuous source training ledger: implemented
 training artifact promotion gate before active runtime: implemented
 candidate failure action queue and auto retrain submission: implemented
 code-record and syntax eval inside artifact promotion gate: implemented
-executable code-generation backend gate: implemented
+executable pytest-backed code-generation benchmark gate: implemented
 CUDA/QLoRA training backend: supported when optional dependencies and CUDA torch are installed
 continuous distributed training: next stage, requires many external workers and promotion automation
 ```
