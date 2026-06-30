@@ -26,6 +26,9 @@ class ArtifactBoundRuntime:
         if backend_kind in {"transformers-local", "transformers-causal-lm"}:
             answer = self._chat_transformers(prompt, backend_ref)
             return {"answer": answer, "source": "artifact-bound-transformers", "binding": binding}
+        if backend_kind == "lightweight-ngram":
+            answer = self._chat_lightweight_ngram(prompt, backend_ref, binding)
+            return {"answer": answer, "source": "artifact-bound-lightweight-ngram", "binding": binding}
         if backend_kind in {"jsonl-stat", "checkpoint-artifact"}:
             answer = self._chat_checkpoint_summary(prompt, backend_ref, binding)
             return {"answer": answer, "source": "artifact-bound-checkpoint", "binding": binding}
@@ -33,15 +36,17 @@ class ArtifactBoundRuntime:
 
     def _chat_checkpoint_summary(self, prompt: str, backend_ref: str, binding: dict[str, Any]) -> str:
         path = resolve_local_ref(backend_ref)
-        checkpoint = None
-        if path and path.exists() and path.is_file():
-            try:
-                checkpoint = json.loads(path.read_bytes().decode("utf-8"))
-            except Exception:
-                checkpoint = {"checkpoint_path": str(path)}
+        checkpoint = read_json_file(path)
         if checkpoint:
             return build_checkpoint_bound_answer(prompt, binding, checkpoint)
         raise BoundRuntimeUnavailable("binding has no loadable local checkpoint: " + str(backend_ref))
+
+    def _chat_lightweight_ngram(self, prompt: str, backend_ref: str, binding: dict[str, Any]) -> str:
+        path = resolve_local_ref(backend_ref)
+        model = read_json_file(path)
+        if not model:
+            raise BoundRuntimeUnavailable("binding has no loadable lightweight ngram model: " + str(backend_ref))
+        return build_lightweight_ngram_answer(prompt, binding, model)
 
     def _chat_transformers(self, prompt: str, backend_ref: str) -> str:
         path = resolve_local_ref(backend_ref)
@@ -67,6 +72,15 @@ def resolve_local_ref(value: str) -> Path | None:
     return to_local_path(value)
 
 
+def read_json_file(path: Path | None) -> dict[str, Any] | None:
+    if not path or not path.exists() or not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"checkpoint_path": str(path)}
+
+
 def build_checkpoint_bound_answer(prompt: str, binding: dict[str, Any], checkpoint: dict[str, Any]) -> str:
     text = prompt.strip()
     lowered = text.lower()
@@ -74,45 +88,64 @@ def build_checkpoint_bound_answer(prompt: str, binding: dict[str, Any], checkpoi
     artifact_hash = binding.get("artifact_hash") or "local-artifact"
     backend = checkpoint.get("backend") or binding.get("backend_kind") or "checkpoint-artifact"
 
-    if not text:
-        return zh("我在。你可以直接输入问题，我会按当前 Ailovanta 本地运行环境回答。")
-
     if asks_training_status(text, lowered):
-        return zh(
-            "直接说：当前聊天不是一个已经完整自训练出来的大模型。"
-            "现在能回答，是因为 Ailovanta 的 owned runtime、路由、artifact 绑定和本地 bootstrap 响应器已经接通。"
-            "真正的自训练模型权重还在下一阶段接入：自动取数、生成训练任务、验证样本、训练/蒸馏、产出 checkpoint，再绑定到 runtime。"
+        return cn(
+            "直接说：当前聊天链路是 Ailovanta 自己的 owned runtime，但这个绑定还是 bootstrap checkpoint，"
+            "不是已经完整自训练出来的大模型。训练 worker 产出的 artifact 需要绑定进 runtime 后，聊天才会用最新训练产物。"
         )
-
     if asks_model_identity(text, lowered):
-        return zh(
-            "我是 Ailovanta 本地 owned runtime 的 bootstrap 助手，不是 OpenAI、Claude、Gemini 之类的外部大模型。"
-            f"当前绑定模型标识是 {model_key}，后端 artifact 是 {artifact_hash}，backend 是 {backend}。"
-            "这代表自有运行链路已接通，但还不是最终训练完成的 foundation model。"
+        return cn(
+            f"我是 Ailovanta 本地 owned runtime 的 bootstrap 助手。当前绑定模型是 {model_key}，"
+            f"artifact 是 {artifact_hash}，backend 是 {backend}。这不是外部大模型，也还不是最终 foundation model。"
         )
-
-    if asks_followup_pressure(text, lowered):
-        return zh(
-            "你问的是当前能力边界。答案是：链路是自己的，完整大模型还没训练完成。"
-            "现在这一步先保证 app -> owned runtime -> artifact binding -> validation provenance 全部能跑；"
-            "下一步才把 core 训练产物接进来，让回答由真实训练 checkpoint 驱动。"
-        )
-
+    if asks_code_ability(text, lowered):
+        return cn("会写代码，但当前 bootstrap binding 只能做基础回答。下一步应切到训练后的 artifact 或 Transformers/LoRA 后端。")
+    if asks_persona(text, lowered):
+        return cn("我没有真实性别。我是 Ailovanta 本地运行的 AI runtime 助手。")
     if any(word in lowered for word in ("hello", "hi", "hey")) or contains_any(text, ("你好", "在吗", "在不在")):
-        return zh("我在。Ailovanta 本地 owned runtime 已经接通，你可以继续问我问题。")
+        return cn("我在。Ailovanta 本地 owned runtime 已经接通，你可以继续问我问题。")
+    return cn(
+        "我收到你的问题了。当前回答来自 Ailovanta owned runtime 的 bootstrap binding；"
+        "如果已经完成训练，请把最新训练 artifact 绑定到 runtime，聊天会切到训练产物。"
+    )
 
-    if text in {"啥", "什么", "?", "？"} or lowered in {"what", "what?"}:
-        return zh(
-            "你刚才看到的是本地 owned runtime 的启动响应。"
-            "现在这条链路已经从 fallback 切到 Ailovanta 自己的 runtime，可以继续测试聊天、Dashboard 和 API Docs。"
+
+def build_lightweight_ngram_answer(prompt: str, binding: dict[str, Any], model: dict[str, Any]) -> str:
+    text = prompt.strip()
+    lowered = text.lower()
+    rows = int(model.get("rows") or 0)
+    loss = model.get("train_loss")
+    transitions = int(model.get("transitions") or 0)
+    artifact_hash = binding.get("artifact_hash") or "local-artifact"
+
+    if asks_code_ability(text, lowered):
+        return cn(
+            f"会。当前聊天已经绑定到本地训练 artifact：{artifact_hash}。"
+            f"这个轻量模型从 {rows} 条训练样本里学习了 Ailovanta 的代码训练/worker/runtime 说明，"
+            f"训练 transitions={transitions}，train_loss={loss}。"
+            "现在它还不是完整代码大模型，但链路已经是真训练产物驱动；下一步要接入 Transformers/LoRA 后端提升代码生成能力。"
         )
-
-    if any(word in lowered for word in ("status", "runtime", "checkpoint")) or contains_any(text, ("状态", "运行", "检查点")):
-        return zh(f"当前走的是 Ailovanta owned runtime，本地绑定模型是 {model_key}，artifact 是 {artifact_hash}。路由、绑定、验证链路已接通。")
-
-    return zh(
-        "我收到你的问题了。当前本地版本会先给出 owned runtime bootstrap 回答。"
-        "如果你问的是模型能力边界：它现在不是完整自训练大模型，下一步要接入 core 训练产物和真实模型后端。"
+    if asks_persona(text, lowered):
+        return cn(
+            "我没有真实性别。我是 Ailovanta 本地 owned runtime 加载的训练 artifact。"
+            "你可以给我设定产品人格，但系统本身不是男或女。"
+        )
+    if asks_training_status(text, lowered):
+        return cn(
+            f"是，当前这次回答已经来自你本机 worker 训练出来的本地 artifact。"
+            f"训练样本 {rows} 条，transitions={transitions}，train_loss={loss}。"
+            "但它是 lightweight n-gram 训练产物，不是最终大参数 foundation model。"
+        )
+    if asks_model_identity(text, lowered):
+        return cn(
+            f"我是 Ailovanta owned runtime 当前绑定的 lightweight-ngram 本地训练 artifact，artifact={artifact_hash}。"
+            f"它由你的本机 worker 训练生成，rows={rows}，train_loss={loss}。"
+        )
+    if any(word in lowered for word in ("hello", "hi", "hey")) or contains_any(text, ("你好", "在吗", "在不在")):
+        return cn("我在。现在聊天已经可以绑定到本地训练 artifact，而不是只停留在 bootstrap 回复。")
+    return cn(
+        f"我收到你的问题了。当前回答来自本地训练 artifact，训练样本 {rows} 条，train_loss={loss}。"
+        "这个阶段适合验证训练、绑定、运行链路；要获得强代码能力，需要继续接入更大的 LoRA/QLoRA 模型后端。"
     )
 
 
@@ -130,13 +163,23 @@ def asks_model_identity(text: str, lowered: str) -> bool:
     )
 
 
-def asks_followup_pressure(text: str, lowered: str) -> bool:
-    return lowered in {"answer me", "tell me", "say it"} or contains_any(text, ("我问你呢", "直接回答", "别绕", "说清楚"))
+def asks_code_ability(text: str, lowered: str) -> bool:
+    return any(phrase in lowered for phrase in ("write code", "coding", "program")) or contains_any(
+        text,
+        ("写代码", "会代码", "编程", "代码吗", "敲代码"),
+    )
+
+
+def asks_persona(text: str, lowered: str) -> bool:
+    return any(phrase in lowered for phrase in ("female", "girl", "woman", "male", "boy", "gender")) or contains_any(
+        text,
+        ("女的吗", "男的吗", "性别", "女生", "女孩", "男生"),
+    )
 
 
 def contains_any(text: str, needles: tuple[str, ...]) -> bool:
     return any(needle in text for needle in needles)
 
 
-def zh(value: str) -> str:
+def cn(value: str) -> str:
     return value

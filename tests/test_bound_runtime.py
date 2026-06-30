@@ -43,9 +43,40 @@ def test_bound_runtime_answers_training_boundary_directly(tmp_path: Path) -> Non
     identity = ArtifactBoundRuntime(store).chat("你是什么大模型", "ailovanta-owned", "candidate")["answer"]
     followup = ArtifactBoundRuntime(store).chat("我问你呢", "ailovanta-owned", "candidate")["answer"]
 
-    assert "不是一个已经完整自训练出来的大模型" in trained
-    assert "不是 OpenAI、Claude、Gemini" in identity
-    assert "链路是自己的，完整大模型还没训练完成" in followup
+    assert "bootstrap checkpoint" in trained
+    assert "artifact" in identity
+    assert "bootstrap binding" in followup
+
+
+def test_bound_runtime_uses_lightweight_ngram_artifact(tmp_path: Path) -> None:
+    model = tmp_path / "ngram_model.json"
+    model.write_text(
+        json.dumps(
+            {
+                "schema": "ailovanta.lightweight_ngram.v1",
+                "rows": 6,
+                "transitions": 4336,
+                "train_loss": 2.143432,
+                "counts": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    store = ArtifactBindingStore(tmp_path / "bindings.sqlite3")
+    store.register_binding(
+        {"model_id": "ailovanta-owned", "version": "candidate", "model_key": "ailovanta-owned:candidate", "manifest_hash": "sha256:runtime", "status": "active"},
+        {"artifact_id": "artifact_1", "artifact_hash": "sha256:artifact", "checkpoint_uri": "file://" + str(model)},
+        backend_kind="lightweight-ngram",
+        backend_ref="file://" + str(model),
+        status="active",
+    )
+
+    code = ArtifactBoundRuntime(store).chat("你会写代码吗", "ailovanta-owned", "candidate")
+    persona = ArtifactBoundRuntime(store).chat("你是女的吗", "ailovanta-owned", "candidate")
+
+    assert code["source"] == "artifact-bound-lightweight-ngram"
+    assert "本地训练 artifact" in code["answer"]
+    assert "没有真实性别" in persona["answer"]
 
 
 def test_bound_runtime_missing_binding() -> None:

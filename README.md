@@ -232,6 +232,12 @@ Queue a real local training smoke job:
 .\seed_training_job_windows.bat
 ```
 
+Bind an existing local training artifact into owned chat if needed:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\bind_latest_training_artifact.py
+```
+
 Check whether your GPU is visible:
 
 ```powershell

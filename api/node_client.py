@@ -13,6 +13,7 @@ from typing import Any
 
 from api.gpu_probe import detect_gpu
 from api.model_job import run_model_job
+from api.training_artifact_binding import bind_local_training_artifact
 
 
 def auth_headers() -> dict[str, str]:
@@ -48,6 +49,10 @@ def try_post(server: str, path: str, body: dict[str, Any]) -> dict[str, Any] | N
         if exc.code == 404:
             return None
         raise
+
+
+def connection_unavailable(exc: Exception) -> bool:
+    return isinstance(exc, urllib.error.URLError)
 
 
 def detect(enable_gpu: bool) -> dict[str, Any]:
@@ -96,7 +101,16 @@ def main() -> int:
     print(json.dumps({"ok": True, "node": node}, ensure_ascii=False, indent=2))
 
     while True:
-        post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
+        try:
+            post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
+        except Exception as exc:
+            if connection_unavailable(exc):
+                print(json.dumps({"ok": False, "reason": "server_unavailable", "server": args.server, "message": str(exc)}, ensure_ascii=False))
+                if args.once:
+                    return 0
+                time.sleep(max(3, args.interval))
+                continue
+            raise
         try:
             job = get(args.server, f"/jobs/next?node_id={node_id}").get("job")
         except urllib.error.HTTPError as exc:
@@ -104,6 +118,14 @@ def main() -> int:
                 job = None
             else:
                 raise
+        except Exception as exc:
+            if connection_unavailable(exc):
+                print(json.dumps({"ok": False, "reason": "server_unavailable", "server": args.server, "message": str(exc)}, ensure_ascii=False))
+                if args.once:
+                    return 0
+                time.sleep(max(3, args.interval))
+                continue
+            raise
 
         if job:
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "busy"})
@@ -114,7 +136,8 @@ def main() -> int:
                 catalog_result = try_post(args.server, "/catalog/items", output)
             summary = f"node finished task on {profile['device_name']}; output={output['location']}"
             result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
-            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result}, ensure_ascii=False, indent=2))
+            binding = bind_local_training_artifact(output)
+            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding}, ensure_ascii=False, indent=2))
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
         elif args.once:
             print(json.dumps({"ok": True, "node_id": node_id, "message": "no job"}, ensure_ascii=False))

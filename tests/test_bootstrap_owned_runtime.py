@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from api.artifact_binding import ArtifactBindingStore
 from api.main import app, runtime_registry
 from api.runtime_forwarder import RuntimeEndpointStore
 from scripts.bootstrap_owned_runtime import bootstrap_owned_runtime
@@ -26,3 +27,32 @@ def test_bootstrap_owned_runtime_enables_owned_chat(monkeypatch, tmp_path) -> No
     assert body["source"] == "ailovanta-worker"
     assert "owned runtime" in body["answer"]
     assert "Loaded the local checkpoint metadata" not in body["answer"]
+
+
+def test_bootstrap_owned_runtime_does_not_overwrite_training_artifact(tmp_path) -> None:
+    store = ArtifactBindingStore(tmp_path / "artifact_bindings.sqlite3")
+    model_path = tmp_path / "ngram_model.json"
+    model_path.write_text('{"schema":"ailovanta.lightweight_ngram.v1","rows":1}', encoding="utf-8")
+    trained = store.register_binding(
+        {
+            "model_id": "ailovanta-owned",
+            "version": "candidate",
+            "model_key": "ailovanta-owned:candidate",
+            "manifest_hash": "sha256:local-owned-candidate",
+            "status": "active",
+        },
+        {
+            "artifact_id": "local_training_test",
+            "artifact_hash": "sha256:trained",
+            "checkpoint_uri": "file://" + str(model_path),
+        },
+        backend_kind="lightweight-ngram",
+        backend_ref="file://" + str(model_path),
+        status="active",
+    )
+
+    result = bootstrap_owned_runtime(tmp_path)
+    latest = ArtifactBindingStore(tmp_path / "artifact_bindings.sqlite3").latest_for_model("ailovanta-owned:candidate", active_only=True)
+
+    assert result["binding"]["binding_id"] == trained["binding_id"]
+    assert latest["backend_kind"] == "lightweight-ngram"

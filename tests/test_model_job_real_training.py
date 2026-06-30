@@ -4,6 +4,7 @@ from pathlib import Path
 
 from api.model_job import resolve_dataset_path, run_model_job
 from api.node_client import make_output, try_post
+from api.training_artifact_binding import bind_local_training_artifact
 
 
 def write_dataset(path: Path) -> Path:
@@ -78,6 +79,31 @@ def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:
 
     assert result["metrics"]["backend"] == "lightweight-ngram"
     assert (output_dir / "ngram_model.json").exists()
+
+
+def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) -> None:
+    dataset = write_dataset(tmp_path / "train.jsonl")
+    output_dir = tmp_path / "node-model"
+    result = run_model_job(
+        {
+            "name": "node-real-local",
+            "dataset_uri": "file://" + str(dataset),
+            "base_model": "ailovanta-bootstrap",
+            "max_steps": 2,
+            "output_dir": str(output_dir),
+        },
+        {"device_name": "test-node", "cpu_threads": 4, "memory_gb": 16, "has_gpu": True},
+        "job-bind-1",
+    )
+
+    from api.artifact_binding import ArtifactBindingStore
+
+    binding = bind_local_training_artifact(result, ArtifactBindingStore(tmp_path / "bindings.sqlite3"))
+
+    assert binding is not None
+    assert binding["model_key"] == "ailovanta-owned:candidate"
+    assert binding["backend_kind"] == "lightweight-ngram"
+    assert binding["status"] == "active"
 
 
 def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:

@@ -78,14 +78,19 @@ def bootstrap_owned_runtime(
         "backend_ref": checkpoint_ref,
         "backend_kind": "checkpoint-artifact",
     }
-    binding = ArtifactBindingStore(data_root / "artifact_bindings.sqlite3").register_binding(
-        model,
-        artifact,
-        backend_kind="checkpoint-artifact",
-        backend_ref=checkpoint_ref,
-        status="active",
-        metadata={"source": "bootstrap_owned_runtime", "runtime_id": runtime_id, "node_id": node_id},
-    )
+    binding_store = ArtifactBindingStore(data_root / "artifact_bindings.sqlite3")
+    existing_binding = binding_store.latest_for_model(f"{model_id}:{version}", active_only=True)
+    if existing_binding and existing_binding.get("backend_kind") != "checkpoint-artifact":
+        binding = existing_binding
+    else:
+        binding = binding_store.register_binding(
+            model,
+            artifact,
+            backend_kind="checkpoint-artifact",
+            backend_ref=checkpoint_ref,
+            status="active",
+            metadata={"source": "bootstrap_owned_runtime", "runtime_id": runtime_id, "node_id": node_id},
+        )
     return {
         "ok": True,
         "model": model,

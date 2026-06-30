@@ -58,6 +58,14 @@ runtime_data/models/<job-name>-<version>/output.json
 
 If Transformers/CUDA/PEFT are installed and the job requests them, `api.model_job` can run a Transformers/LoRA path. Otherwise it still performs real local lightweight n-gram training over the dataset instead of writing a fake success file.
 
+After a local training artifact is produced, the worker binds it to `ailovanta-owned:candidate` so owned chat can route through the latest training artifact instead of the bootstrap checkpoint. If you already trained before this binding step existed, bind the newest local artifact manually:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\bind_latest_training_artifact.py
+```
+
+Restart the API after code changes. The bootstrap launcher will not overwrite an existing active training artifact binding.
+
 ## GPU Status
 
 Check local GPU detection:
