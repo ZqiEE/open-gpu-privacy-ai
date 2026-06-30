@@ -108,7 +108,7 @@ So a rolled-back candidate is no longer selected by active binding lookup.
 
 ## Important reality
 
-A jsonl-stat checkpoint is not a full conversational model. When the binding points to a lightweight checkpoint, the worker returns checkpoint-bound status and metadata instead of pretending to generate as a large model.
+A jsonl-stat checkpoint is not a full conversational model. When the binding points to a lightweight checkpoint, the worker returns a small owned-runtime bootstrap assistant response for the user-visible answer. Detailed artifact facts stay in `artifact_binding` and `validation_provenance` instead of being shown as the chat answer.
 
 A real generative path requires a binding whose `backend_kind` is `transformers-local` or `transformers-causal-lm` and whose `backend_ref` points to a valid local model directory.
 

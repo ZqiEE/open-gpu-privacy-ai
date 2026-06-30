@@ -24,4 +24,5 @@ def test_bootstrap_owned_runtime_enables_owned_chat(monkeypatch, tmp_path) -> No
     assert response.status_code == 200
     assert body["owned_model_ready"] is True
     assert body["source"] == "ailovanta-worker"
-    assert "Loaded the local checkpoint metadata" in body["answer"]
+    assert "owned runtime" in body["answer"]
+    assert "Loaded the local checkpoint metadata" not in body["answer"]

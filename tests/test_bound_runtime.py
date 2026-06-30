@@ -23,7 +23,8 @@ def test_bound_runtime_loads_checkpoint_metadata(tmp_path: Path) -> None:
     )
     result = ArtifactBoundRuntime(store).chat("hello", "ailovanta-owned", "candidate")
     assert result["source"] == "artifact-bound-checkpoint"
-    assert "Token count" in result["answer"]
+    assert "owned runtime" in result["answer"]
+    assert "Token count" not in result["answer"]
 
 
 def test_bound_runtime_missing_binding() -> None:
