@@ -205,6 +205,20 @@ def answer_with_ollama(prompt: str, context_messages: list[dict] | None = None) 
         return "Ailovanta local fallback: connect Ollama or a registered runtime to enable real model responses.", "fallback"
 
 
+def prefer_owned_chat() -> bool:
+    return os.getenv("AILOVANTA_PREFER_OWNED_MODEL", "true").lower() not in {"0", "false", "no", "off"}
+
+
+def require_owned_chat() -> bool:
+    return os.getenv("AILOVANTA_REQUIRE_OWNED_MODEL", "").lower() in {"1", "true", "yes", "on"}
+
+
+def owned_model_target(model_id: str, version: str) -> tuple[str, str]:
+    owned_model_id = model_id if model_id != "ailovanta-local" else os.getenv("AILOVANTA_OWNED_MODEL_ID", "ailovanta-owned")
+    owned_version = version if version != "local" else os.getenv("AILOVANTA_OWNED_MODEL_VERSION", "candidate")
+    return owned_model_id, owned_version
+
+
 def worker_validation_store() -> WorkerResultValidationStore:
     return WorkerResultValidationStore(os.getenv("AILOVANTA_WORKER_VALIDATION_PATH", "runtime_data/worker_result_validations.sqlite3"))
 
@@ -566,11 +580,12 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
     recent_messages = conversations.list_messages(convo["id"], limit=24)
     context_messages = build_chat_context(recent_messages, body.prompt, max_messages=12)
 
-    if os.getenv("AILOVANTA_REQUIRE_OWNED_MODEL", "").lower() in {"1", "true", "yes", "on"}:
+    owned_required = require_owned_chat()
+    owned_error = None
+    if owned_required or prefer_owned_chat():
         from api.owned_model_runtime import OwnedModelRequest, OwnedModelRuntime, OwnedModelUnavailable
 
-        owned_model_id = body.model_id if body.model_id != "ailovanta-local" else os.getenv("AILOVANTA_OWNED_MODEL_ID", "ailovanta-owned")
-        owned_version = body.version if body.version != "local" else os.getenv("AILOVANTA_OWNED_MODEL_VERSION", "candidate")
+        owned_model_id, owned_version = owned_model_target(body.model_id, body.version)
         try:
             result = OwnedModelRuntime(runtime_registry).generate(
                 OwnedModelRequest(
@@ -582,61 +597,76 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
                 )
             )
         except OwnedModelUnavailable as exc:
-            answer = "Ailovanta owned model runtime is not ready: " + str(exc)
-            assistant_message = conversations.add_message(convo["id"], "assistant", answer, source="owned-runtime-unavailable", model_id=owned_model_id)
+            owned_error = str(exc)
+            if owned_required:
+                answer = "Ailovanta owned model runtime is not ready: " + owned_error
+                assistant_message = conversations.add_message(convo["id"], "assistant", answer, source="owned-runtime-unavailable", model_id=owned_model_id)
+                return {
+                    "conversation_id": convo["id"],
+                    "answer": answer,
+                    "source": "owned-runtime-unavailable",
+                    "runtime_route": {"assigned": False, "reason": owned_error},
+                    "assistant_message": assistant_message,
+                    "context_messages_used": len(context_messages),
+                    "owned_model_ready": False,
+                    "model_id": owned_model_id,
+                    "version": owned_version,
+                    "fallback_allowed": False,
+                }
+        else:
+            worker_validation = validate_worker_result(
+                result.worker_result,
+                artifact_manifest=artifact_manifest_from_worker_result(result.worker_result),
+                store=worker_validation_store(),
+                reputation=worker_reputation_store(),
+                apply_reputation=True,
+            )
+            assistant_message = conversations.add_message(convo["id"], "assistant", result.answer, source=result.source, model_id=result.model_id)
+            usage_store.record(
+                body.user_id,
+                "ailovanta.chat.owned",
+                1,
+                result.source,
+                {
+                    "conversation_id": convo["id"],
+                    "model_id": result.model_id,
+                    "version": result.version,
+                    "context_messages": len(context_messages),
+                    "worker_validation_receipt_id": worker_validation["receipt_id"],
+                    "worker_validation_passed": worker_validation["passed"],
+                    "owned_selection": "preferred" if not owned_required else "required",
+                },
+            )
             return {
                 "conversation_id": convo["id"],
-                "answer": answer,
-                "source": "owned-runtime-unavailable",
-                "runtime_route": {"assigned": False, "reason": str(exc)},
+                "answer": result.answer,
+                "source": result.source,
+                "runtime_route": result.runtime_route,
+                "worker_validation": worker_validation,
                 "assistant_message": assistant_message,
                 "context_messages_used": len(context_messages),
-                "owned_model_ready": False,
-                "model_id": owned_model_id,
-                "version": owned_version,
-            }
-        worker_validation = validate_worker_result(
-            result.worker_result,
-            artifact_manifest=artifact_manifest_from_worker_result(result.worker_result),
-            store=worker_validation_store(),
-            reputation=worker_reputation_store(),
-            apply_reputation=True,
-        )
-        assistant_message = conversations.add_message(convo["id"], "assistant", result.answer, source=result.source, model_id=result.model_id)
-        usage_store.record(
-            body.user_id,
-            "ailovanta.chat.owned",
-            1,
-            result.source,
-            {
-                "conversation_id": convo["id"],
+                "owned_model_ready": True,
                 "model_id": result.model_id,
                 "version": result.version,
-                "context_messages": len(context_messages),
-                "worker_validation_receipt_id": worker_validation["receipt_id"],
-                "worker_validation_passed": worker_validation["passed"],
-            },
-        )
-        return {
-            "conversation_id": convo["id"],
-            "answer": result.answer,
-            "source": result.source,
-            "runtime_route": result.runtime_route,
-            "worker_validation": worker_validation,
-            "assistant_message": assistant_message,
-            "context_messages_used": len(context_messages),
-            "owned_model_ready": True,
-            "model_id": result.model_id,
-            "version": result.version,
-        }
+            }
 
     route = {"assigned": False, "reason": "runtime routing not requested"}
     if body.use_runtime_router:
         route = runtime_registry.route(RuntimeRequest(request_id=f"chat-{convo['id']}", model_id=body.model_id, version=body.version, region_hint="auto"))
     answer, source = answer_with_ollama(body.prompt, context_messages)
     assistant_message = conversations.add_message(convo["id"], "assistant", answer, source=source, model_id=body.model_id)
-    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id, "context_messages": len(context_messages)})
-    return {"conversation_id": convo["id"], "answer": answer, "source": source, "runtime_route": route, "assistant_message": assistant_message, "context_messages_used": len(context_messages)}
+    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id, "context_messages": len(context_messages), "owned_runtime_error": owned_error})
+    return {
+        "conversation_id": convo["id"],
+        "answer": answer,
+        "source": source,
+        "runtime_route": route,
+        "assistant_message": assistant_message,
+        "context_messages_used": len(context_messages),
+        "owned_model_ready": False,
+        "owned_runtime_error": owned_error,
+        "fallback_allowed": True,
+    }
 
 
 @app.get("/ailovanta/v1/conversations")

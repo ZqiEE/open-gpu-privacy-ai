@@ -83,7 +83,17 @@ POST /artifact-bindings/{binding_id}/check
 
 The check endpoint rechecks the local ref, updates the binding status, and updates the runtime model status. If a missing file appears later, the status can recover from `unavailable` to `candidate`.
 
-Owned-chat also checks the active artifact binding before it calls the worker. If the active binding points to a missing local file or directory, owned-chat fails fast with `owned-runtime-unavailable` instead of silently falling through to a fallback runtime.
+Owned-chat prefers the owned runtime by default. `/ailovanta/v1/chat` first tries the artifact-bound worker path; if no owned route is ready and `AILOVANTA_REQUIRE_OWNED_MODEL` is not enabled, it can still fall back to Ollama/local fallback with `owned_model_ready=false` and an `owned_runtime_error` reason. Set `AILOVANTA_PREFER_OWNED_MODEL=false` only when intentionally testing the bootstrap/Ollama path.
+
+If the active binding points to a missing local file or directory and `AILOVANTA_REQUIRE_OWNED_MODEL=true`, owned-chat fails fast with `owned-runtime-unavailable` instead of silently falling through to a fallback runtime.
+
+For local setup without Ollama, seed an in-process owned worker:
+
+```bash
+python scripts/bootstrap_owned_runtime.py
+```
+
+This registers `ailovanta-owned:candidate`, a trusted runtime node, `inprocess://ailovanta-worker`, and an active checkpoint binding. It is a local bootstrap path; later foundation imports should replace the checkpoint binding with a trained artifact.
 
 ## Rollback sync
 

@@ -51,9 +51,10 @@ def test_worker_infer_posts_to_registered_endpoint(tmp_path, monkeypatch) -> Non
     assert result.worker_url == "http://worker.local"
 
 
-def test_worker_url_needs_config(monkeypatch) -> None:
+def test_worker_url_needs_config(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("AILOVANTA_WORKER_URL_RT_OWNED_1", raising=False)
     monkeypatch.delenv("AILOVANTA_DEFAULT_WORKER_URL", raising=False)
+    monkeypatch.setenv("AILOVANTA_RUNTIME_ENDPOINTS_PATH", str(tmp_path / "runtime_endpoints.json"))
     try:
         WorkerInferenceClient.worker_url("rt-owned-1")
     except WorkerInferenceUnavailable as exc:

@@ -82,10 +82,6 @@ class WorkerInferenceClient:
 
     @staticmethod
     def worker_url(runtime_id: str, endpoint_store: RuntimeEndpointStore | None = None) -> str:
-        store = endpoint_store or RuntimeEndpointStore(os.getenv("AILOVANTA_RUNTIME_ENDPOINTS_PATH", "runtime_data/runtime_endpoints.json"))
-        endpoint = store.get(runtime_id)
-        if endpoint and endpoint.get("url"):
-            return str(endpoint["url"]).rstrip("/")
         key = "AILOVANTA_WORKER_URL_" + runtime_id.upper().replace("-", "_")
         specific = os.getenv(key)
         if specific:
@@ -93,4 +89,8 @@ class WorkerInferenceClient:
         default = os.getenv("AILOVANTA_DEFAULT_WORKER_URL")
         if default:
             return default.rstrip("/")
+        store = endpoint_store or RuntimeEndpointStore(os.getenv("AILOVANTA_RUNTIME_ENDPOINTS_PATH", "runtime_data/runtime_endpoints.json"))
+        endpoint = store.get(runtime_id)
+        if endpoint and endpoint.get("url"):
+            return str(endpoint["url"]).rstrip("/")
         raise WorkerInferenceUnavailable(f"worker url not configured for runtime: {runtime_id}")
