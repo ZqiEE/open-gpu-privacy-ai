@@ -87,7 +87,7 @@ def action_summary(path: str | Path = DEFAULT_PATH) -> dict[str, Any]:
 
 
 def _needs_retrain(blockers: list[str]) -> bool:
-    return any(blocker in RETRAIN_BLOCKERS or blocker.startswith("artifact_integrity:") or blocker.startswith("code_eval:") for blocker in blockers)
+    return any(blocker in RETRAIN_BLOCKERS or blocker.startswith("artifact_integrity:") or blocker.startswith("code_eval:") or blocker.startswith("code_generation:") for blocker in blockers)
 
 
 def _retrain_action(binding: dict[str, Any], gate: dict[str, Any], *, max_steps: int) -> dict[str, Any]:

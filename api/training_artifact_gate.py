@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from api.artifact_integrity import verify_artifact_uri
+from api.candidate_code_generation_eval import evaluate_candidate_code_generation
 from api.route_health import RouteHealth
 from api.training_code_eval import evaluate_training_code_dataset
 
@@ -24,6 +25,9 @@ def evaluate_training_artifact_binding(
     blockers: list[str] = []
     model = _read_model(model_path)
     code_eval = None
+    code_generation_eval = evaluate_candidate_code_generation(binding)
+    if not code_generation_eval.get("ok"):
+        blockers.extend("code_generation:" + str(item) for item in code_generation_eval.get("blockers", []))
     if not model:
         blockers.append("missing_or_invalid_model")
     else:
@@ -61,6 +65,7 @@ def evaluate_training_artifact_binding(
         "blockers": sorted(set(blockers)),
         "model_eval": _compact_model(model),
         "code_eval": code_eval,
+        "code_generation_eval": code_generation_eval,
         "artifact_integrity": integrity,
         "artifact_distribution": distribution,
         "policy": {

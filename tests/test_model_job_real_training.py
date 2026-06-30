@@ -94,7 +94,7 @@ def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:
     assert (output_dir / "ngram_model.json").exists()
 
 
-def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) -> None:
+def test_bind_local_training_artifact_keeps_lightweight_backend_candidate_until_code_generation_eval(tmp_path: Path) -> None:
     dataset = write_dataset(tmp_path / "train.jsonl")
     output_dir = tmp_path / "node-model"
     result = run_model_job(
@@ -123,17 +123,21 @@ def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) 
     assert binding is not None
     assert binding["model_key"] == "ailovanta-owned:candidate"
     assert binding["backend_kind"] == "lightweight-ngram"
-    assert binding["status"] == "active"
+    assert binding["status"] == "candidate"
     distribution = binding["metadata"]["artifact_distribution"]
     assert distribution["schema_version"] == "ailovanta.artifact_distribution.v1"
     assert distribution["manifest_hash"].startswith("sha256:")
     assert Path(distribution["manifest_uri"].removeprefix("file://")).exists()
     assert distribution["replica_book_path"].endswith("replica_book.json")
     assert binding["metadata"]["storage_policy"]["mode"] == "distributed_chunk_manifest"
-    assert binding["metadata"]["promotion_gate"]["ok"] is True
-    assert binding["metadata"]["promotion_gate"]["decision"] == "promote_active"
-    assert binding["metadata"]["promotion_gate"]["code_eval"]["ok"] is True
-    assert binding["metadata"]["promotion_gate"]["code_eval"]["syntax_checks"] >= 1
+    gate = binding["metadata"]["promotion_gate"]
+    assert gate["ok"] is False
+    assert gate["decision"] == "keep_candidate"
+    assert gate["code_eval"]["ok"] is True
+    assert gate["code_eval"]["syntax_checks"] >= 1
+    assert gate["code_generation_eval"]["ok"] is False
+    assert "code_generation:unsupported_code_generation_backend" in gate["blockers"]
+    assert binding["metadata"]["failure_actions"]["actions"][0]["action_type"] == "training_retrain"
 
 
 def test_bind_local_training_artifact_keeps_under_replicated_artifact_candidate(tmp_path: Path) -> None:
@@ -165,7 +169,7 @@ def test_bind_local_training_artifact_keeps_under_replicated_artifact_candidate(
     assert binding["status"] == "candidate"
     assert binding["metadata"]["promotion_gate"]["ok"] is False
     assert "artifact_distribution:replica_book_under_replicated" in binding["metadata"]["promotion_gate"]["blockers"]
-    assert binding["metadata"]["failure_actions"]["actions"] == []
+    assert binding["metadata"]["failure_actions"]["actions"][0]["action_type"] == "training_retrain"
 
 
 def test_bind_local_training_artifact_requires_code_eval(tmp_path: Path) -> None:
