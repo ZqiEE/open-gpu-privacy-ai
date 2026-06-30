@@ -19,12 +19,14 @@ def main() -> int:
     parser.add_argument("--output", default="runtime_data/code_repair_results.json")
     parser.add_argument("--max-candidates-per-failure", type=int, default=16)
     parser.add_argument("--candidate-command", default=None)
+    parser.add_argument("--backend-ref", default=None)
     args = parser.parse_args()
     result = repair_failures_from_reports(
         load_reports(args.reports),
         args.output,
         max_candidates_per_failure=args.max_candidates_per_failure,
         candidate_command=args.candidate_command,
+        backend_ref=args.backend_ref,
     )
     print(json.dumps({key: value for key, value in result.items() if key != "verified_report_items"}, ensure_ascii=False, indent=2))
     return 0

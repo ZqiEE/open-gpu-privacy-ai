@@ -321,6 +321,7 @@ python scripts/run_code_repair_loop.py \
   runtime_data/code_task_reports.json \
   --output runtime_data/code_repair_results.json \
   --candidate-command "python ../ailovanta-core/scripts/generate_code_repair_candidates.py" \
+  --backend-ref file://runtime_data/checkpoints/checkpoint.bin \
   --max-candidates-per-failure 16
 ```
 
@@ -330,7 +331,8 @@ The full autonomous loop can use the same bridge:
 python scripts/run_autonomous_code_training_loop.py \
   --sources runtime_data/github_code_sources.json \
   --core-path ../ailovanta-core \
-  --repair-candidate-command "python ../ailovanta-core/scripts/generate_code_repair_candidates.py"
+  --repair-candidate-command "python ../ailovanta-core/scripts/generate_code_repair_candidates.py" \
+  --repair-backend-ref file://runtime_data/checkpoints/checkpoint.bin
 ```
 
 The repair loop:

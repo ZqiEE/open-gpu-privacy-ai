@@ -84,3 +84,38 @@ def test_repair_loop_accepts_external_candidate_command(tmp_path) -> None:
 
     assert result["verified_report_items"]
     assert result["attempts"][0]["strategy"] == "core:test_candidate"
+
+
+def test_repair_loop_passes_backend_ref_to_external_candidate_command(tmp_path) -> None:
+    task = _failing_task()
+    failed_report = run_code_instruction_task(task).report
+    marker = tmp_path / "seen_backend_ref.txt"
+    generator = tmp_path / "generator.py"
+    generator.write_text(
+        "\n".join(
+            [
+                "import argparse, json",
+                "p = argparse.ArgumentParser()",
+                "p.add_argument('--input')",
+                "p.add_argument('--output')",
+                "p.add_argument('--max-candidates')",
+                "p.add_argument('--backend-ref')",
+                "args = p.parse_args()",
+                f"open({str(marker)!r}, 'w', encoding='utf-8').write(args.backend_ref or '')",
+                "payload = {'schema_version': 'ailovanta.core.code_repair_candidates.v1', 'count': 1, 'candidates': [{'candidate_id': 'core_demo', 'strategy': 'core:backend_candidate', 'files': {'app.py': 'def add(left, right):\\n    return left + right\\n'}}]}",
+                "open(args.output, 'w', encoding='utf-8').write(json.dumps(payload))",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = repair_failed_task(
+        task,
+        failed_report,
+        max_candidates=1,
+        candidate_command=f"{sys.executable} {generator}",
+        backend_ref="file:///tmp/checkpoint.bin",
+    )
+
+    assert result["verified_report_items"]
+    assert marker.read_text(encoding="utf-8") == "file:///tmp/checkpoint.bin"

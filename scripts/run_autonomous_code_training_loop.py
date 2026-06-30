@@ -31,6 +31,7 @@ def main() -> int:
     parser.add_argument("--no-repair", action="store_true")
     parser.add_argument("--max-repair-candidates", type=int, default=16)
     parser.add_argument("--repair-candidate-command", default=None)
+    parser.add_argument("--repair-backend-ref", default=None)
     args = parser.parse_args()
 
     result = AutonomousCodeTrainingLoop(core_path=args.core_path, root=args.root).run_once(
@@ -49,6 +50,7 @@ def main() -> int:
         repair_failures=not args.no_repair,
         max_repair_candidates=args.max_repair_candidates,
         repair_candidate_command=args.repair_candidate_command,
+        repair_backend_ref=args.repair_backend_ref,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 1

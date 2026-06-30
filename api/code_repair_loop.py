@@ -25,6 +25,7 @@ def repair_failures_from_reports(
     output_path: str | Path,
     max_candidates_per_failure: int = 16,
     candidate_command: str | None = None,
+    backend_ref: str | None = None,
 ) -> dict[str, Any]:
     attempts: list[dict[str, Any]] = []
     preference_pairs: list[dict[str, Any]] = []
@@ -36,7 +37,13 @@ def repair_failures_from_reports(
         if report.get("passed"):
             continue
         failed_count += 1
-        result = repair_failed_task(task, report, max_candidates=max_candidates_per_failure, candidate_command=candidate_command)
+        result = repair_failed_task(
+            task,
+            report,
+            max_candidates=max_candidates_per_failure,
+            candidate_command=candidate_command,
+            backend_ref=backend_ref,
+        )
         attempts.extend(result["attempts"])
         preference_pairs.extend(result["preference_pairs"])
         verified_report_items.extend(result["verified_report_items"])
@@ -65,11 +72,17 @@ def repair_failures_from_reports(
     }
 
 
-def repair_failed_task(task: dict[str, Any], failed_report: dict[str, Any], max_candidates: int = 16, candidate_command: str | None = None) -> dict[str, Any]:
+def repair_failed_task(
+    task: dict[str, Any],
+    failed_report: dict[str, Any],
+    max_candidates: int = 16,
+    candidate_command: str | None = None,
+    backend_ref: str | None = None,
+) -> dict[str, Any]:
     if failed_report.get("passed"):
         return {"attempts": [], "preference_pairs": [], "verified_report_items": []}
 
-    candidates = build_repair_candidate_tasks(task, failed_report, max_candidates=max_candidates, candidate_command=candidate_command)
+    candidates = build_repair_candidate_tasks(task, failed_report, max_candidates=max_candidates, candidate_command=candidate_command, backend_ref=backend_ref)
     attempts: list[dict[str, Any]] = []
     preference_pairs: list[dict[str, Any]] = []
     verified_report_items: list[dict[str, Any]] = []
@@ -97,8 +110,14 @@ def repair_failed_task(task: dict[str, Any], failed_report: dict[str, Any], max_
     return {"attempts": attempts, "preference_pairs": preference_pairs, "verified_report_items": verified_report_items}
 
 
-def build_repair_candidate_tasks(task: dict[str, Any], failed_report: dict[str, Any], max_candidates: int = 16, candidate_command: str | None = None) -> list[dict[str, Any]]:
-    external = external_repair_candidate_tasks(task, failed_report, candidate_command, max_candidates=max_candidates) if candidate_command else []
+def build_repair_candidate_tasks(
+    task: dict[str, Any],
+    failed_report: dict[str, Any],
+    max_candidates: int = 16,
+    candidate_command: str | None = None,
+    backend_ref: str | None = None,
+) -> list[dict[str, Any]]:
+    external = external_repair_candidate_tasks(task, failed_report, candidate_command, max_candidates=max_candidates, backend_ref=backend_ref) if candidate_command else []
     if len(external) >= max_candidates:
         return external[:max_candidates]
     payload = task.get("payload") if isinstance(task.get("payload"), dict) else {}
@@ -133,7 +152,13 @@ def build_repair_candidate_tasks(task: dict[str, Any], failed_report: dict[str, 
     return candidates
 
 
-def external_repair_candidate_tasks(task: dict[str, Any], failed_report: dict[str, Any], candidate_command: str | None, max_candidates: int = 16) -> list[dict[str, Any]]:
+def external_repair_candidate_tasks(
+    task: dict[str, Any],
+    failed_report: dict[str, Any],
+    candidate_command: str | None,
+    max_candidates: int = 16,
+    backend_ref: str | None = None,
+) -> list[dict[str, Any]]:
     if not candidate_command:
         return []
     with tempfile.TemporaryDirectory(prefix="ailovanta_core_repair_") as tmp:
@@ -141,7 +166,7 @@ def external_repair_candidate_tasks(task: dict[str, Any], failed_report: dict[st
         input_path = root / "failed_task_report.json"
         output_path = root / "repair_candidates.json"
         input_path.write_text(json.dumps({"task": task, "report": failed_report}, ensure_ascii=False, indent=2), encoding="utf-8")
-        command = _candidate_command_parts(candidate_command, input_path, output_path, max_candidates)
+        command = _candidate_command_parts(candidate_command, input_path, output_path, max_candidates, backend_ref=backend_ref)
         proc = subprocess.run(command, text=True, capture_output=True, check=False, timeout=30)
         if proc.returncode != 0:
             return []
@@ -199,8 +224,8 @@ def _task_with_changed_files(task: dict[str, Any], failed_report: dict[str, Any]
     return candidate_task
 
 
-def _candidate_command_parts(command_template: str, input_path: Path, output_path: Path, max_candidates: int) -> list[str]:
-    formatted = command_template.format(input=str(input_path), output=str(output_path), max_candidates=str(max_candidates))
+def _candidate_command_parts(command_template: str, input_path: Path, output_path: Path, max_candidates: int, backend_ref: str | None = None) -> list[str]:
+    formatted = command_template.format(input=str(input_path), output=str(output_path), max_candidates=str(max_candidates), backend_ref=backend_ref or "")
     parts = shlex.split(formatted, posix=os.name != "nt")
     if "{output}" not in command_template and "--output" not in parts:
         parts.extend(["--output", str(output_path)])
@@ -208,6 +233,8 @@ def _candidate_command_parts(command_template: str, input_path: Path, output_pat
         parts.extend(["--input", str(input_path)])
     if "{max_candidates}" not in command_template and "--max-candidates" not in parts:
         parts.extend(["--max-candidates", str(max_candidates)])
+    if backend_ref and "{backend_ref}" not in command_template and "--backend-ref" not in parts:
+        parts.extend(["--backend-ref", backend_ref])
     return parts
 
 

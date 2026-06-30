@@ -45,6 +45,7 @@ class AutonomousCodeTrainingLoop:
         repair_failures: bool = True,
         max_repair_candidates: int = 16,
         repair_candidate_command: str | None = None,
+        repair_backend_ref: str | None = None,
     ) -> dict[str, Any]:
         run_id = "auto_code_" + uuid4().hex[:12]
         run_dir = self.runs_dir / run_id
@@ -85,6 +86,7 @@ class AutonomousCodeTrainingLoop:
                 repairs_path,
                 max_candidates_per_failure=max_repair_candidates,
                 candidate_command=repair_candidate_command,
+                backend_ref=repair_backend_ref,
             )
             if repair_failures
             else self._write_empty_repairs(repairs_path)
