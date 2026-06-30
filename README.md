@@ -226,6 +226,12 @@ Run your machine as a local training worker in a second terminal:
 .\start_training_worker_windows.bat
 ```
 
+Queue a real local training smoke job:
+
+```powershell
+.\seed_training_job_windows.bat
+```
+
 Check whether your GPU is visible:
 
 ```powershell

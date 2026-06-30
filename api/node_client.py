@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from api.gpu_probe import detect_gpu
+from api.model_job import run_model_job
 
 
 def auth_headers() -> dict[str, str]:
@@ -67,36 +68,7 @@ def detect(enable_gpu: bool) -> dict[str, Any]:
 def make_output(job: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
     payload = job.get("payload") or {}
     job_id = job.get("job_id") or job.get("id") or "manual"
-    name = payload.get("name") or payload.get("model_id") or "ailovanta-code"
-    version = payload.get("version") or "local-v0"
-    out_dir = Path(payload.get("output_dir") or f"runtime_data/models/{name}-{version}")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    metrics = {
-        "steps": int(payload.get("steps") or payload.get("max_steps") or 1),
-        "cpu_threads": profile.get("cpu_threads"),
-        "memory_gb": profile.get("memory_gb"),
-        "has_gpu": bool(profile.get("has_gpu")),
-        "score": 0.75 if profile.get("has_gpu") else 0.62,
-    }
-    record = {
-        "schema": "ailovanta.node_output.v1",
-        "name": name,
-        "version": version,
-        "source_job_id": job_id,
-        "kind": payload.get("kind") or "adapter",
-        "metrics": metrics,
-    }
-    (out_dir / "output.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {
-        "name": name,
-        "version": version,
-        "source_job_id": job_id,
-        "location": str(out_dir),
-        "kind": record["kind"],
-        "metrics": metrics,
-        "status": "candidate",
-        "notes": f"created by {profile['device_name']}",
-    }
+    return run_model_job(payload, profile, job_id)
 
 
 def main() -> int:

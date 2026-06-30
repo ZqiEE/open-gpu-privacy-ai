@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 from pathlib import Path
 from time import time
@@ -61,9 +62,18 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
 
 
 def _write_portable_output(base_model: str, data_path: str | None, out_dir: Path, max_steps: int) -> dict[str, Any]:
-    info = {"base_model": base_model, "data_path": data_path, "max_steps": max_steps, "mode": "portable"}
+    dataset_path = resolve_dataset_path(data_path)
+    if dataset_path and dataset_path.exists():
+        return _train_lightweight_ngram(base_model, dataset_path, out_dir, max_steps)
+
+    info = {"base_model": base_model, "data_path": data_path, "max_steps": max_steps, "mode": "no_dataset"}
     (out_dir / "adapter_config.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"backend": "portable", "kind": "adapter", "score": 0.62, "message": "portable artifact written; install optional local deps for model tuning"}
+    return {
+        "backend": "no-dataset",
+        "kind": "training_manifest",
+        "score": 0.0,
+        "message": "dataset missing; no training artifact produced",
+    }
 
 
 def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path, max_steps: int, payload: dict[str, Any]) -> dict[str, Any]:
@@ -75,12 +85,12 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
         fallback["message"] = f"optional local deps missing: {exc}; portable artifact written"
         return fallback
 
-    if not data_path or not Path(data_path).exists():
+    dataset_path = resolve_dataset_path(data_path)
+    if not dataset_path or not dataset_path.exists():
         fallback = _write_portable_output(base_model, data_path, out_dir, max_steps)
-        fallback["message"] = "dataset missing; portable artifact written"
         return fallback
 
-    rows = _read_rows(Path(data_path), max_rows=max(8, max_steps))
+    rows = _read_rows(dataset_path, max_rows=max(8, max_steps))
     if not rows:
         fallback = _write_portable_output(base_model, data_path, out_dir, max_steps)
         fallback["message"] = "dataset has no usable text; portable artifact written"
@@ -161,6 +171,89 @@ def _read_rows(path: Path, max_rows: int) -> list[dict[str, str]]:
             if text:
                 rows.append({"text": str(text)[:4096]})
     return rows
+
+
+def resolve_dataset_path(value: str | None) -> Path | None:
+    if not value:
+        return None
+    if value.startswith("file://"):
+        return Path(value.removeprefix("file://"))
+    if value.startswith("local://"):
+        return Path(value.removeprefix("local://"))
+    if "://" in value:
+        return None
+    return Path(value)
+
+
+def _train_lightweight_ngram(base_model: str, dataset_path: Path, out_dir: Path, max_steps: int) -> dict[str, Any]:
+    rows = _read_rows(dataset_path, max_rows=max(32, max_steps * 4))
+    texts = [row["text"] for row in rows if row.get("text")]
+    if not texts:
+        return {
+            "backend": "empty-dataset",
+            "kind": "training_manifest",
+            "score": 0.0,
+            "message": "dataset had no usable text; no training artifact produced",
+        }
+
+    counts: dict[str, dict[str, int]] = {}
+    total_transitions = 0
+    epochs = max(1, min(max_steps, 50))
+    for _ in range(epochs):
+        for text in texts:
+            previous = "\n"
+            for current in text[:4096]:
+                bucket = counts.setdefault(previous, {})
+                bucket[current] = bucket.get(current, 0) + 1
+                previous = current
+                total_transitions += 1
+
+    vocabulary = sorted({char for bucket in counts.values() for char in bucket})
+    vocab_size = max(len(vocabulary), 1)
+    nll = 0.0
+    eval_transitions = 0
+    for text in texts[: min(len(texts), 32)]:
+        previous = "\n"
+        for current in text[:2048]:
+            bucket = counts.get(previous, {})
+            probability = (bucket.get(current, 0) + 1) / (sum(bucket.values()) + vocab_size)
+            nll -= math.log(probability)
+            previous = current
+            eval_transitions += 1
+
+    train_loss = round(nll / max(eval_transitions, 1), 6)
+    model = {
+        "schema": "ailovanta.lightweight_ngram.v1",
+        "base_model": base_model,
+        "dataset_path": str(dataset_path),
+        "epochs": epochs,
+        "rows": len(texts),
+        "vocab_size": vocab_size,
+        "transitions": total_transitions,
+        "train_loss": train_loss,
+        "counts": counts,
+    }
+    (out_dir / "ngram_model.json").write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out_dir / "adapter_config.json").write_text(
+        json.dumps(
+            {
+                "backend": "lightweight-ngram",
+                "base_model": base_model,
+                "dataset_path": str(dataset_path),
+                "train_loss": train_loss,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    score = round(max(0.05, min(0.95, 1.0 / (1.0 + train_loss))), 4)
+    return {
+        "backend": "lightweight-ngram",
+        "kind": "local_language_artifact",
+        "score": score,
+        "message": f"trained lightweight n-gram artifact on {len(texts)} rows; train_loss={train_loss}",
+    }
 
 
 def merge_outputs(items: list[dict[str, Any]], output_dir: str | Path) -> dict[str, Any]:
