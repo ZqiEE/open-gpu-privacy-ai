@@ -41,6 +41,15 @@ def get(server: str, path: str) -> dict[str, Any]:
         return json.loads(res.read().decode("utf-8"))
 
 
+def try_post(server: str, path: str, body: dict[str, Any]) -> dict[str, Any] | None:
+    try:
+        return post(server, path, body)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
 def detect(enable_gpu: bool) -> dict[str, Any]:
     memory_gb = 4.0
     try:
@@ -102,7 +111,7 @@ def main() -> int:
             output = make_output(job, profile)
             catalog_result = None
             if (job.get("payload") or {}).get("catalog", True):
-                catalog_result = post(args.server, "/catalog/items", output)
+                catalog_result = try_post(args.server, "/catalog/items", output)
             summary = f"node finished task on {profile['device_name']}; output={output['location']}"
             result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
             print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result}, ensure_ascii=False, indent=2))

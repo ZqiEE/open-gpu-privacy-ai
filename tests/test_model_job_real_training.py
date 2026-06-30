@@ -1,8 +1,9 @@
 import json
+import urllib.error
 from pathlib import Path
 
 from api.model_job import resolve_dataset_path, run_model_job
-from api.node_client import make_output
+from api.node_client import make_output, try_post
 
 
 def write_dataset(path: Path) -> Path:
@@ -77,3 +78,12 @@ def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:
 
     assert result["metrics"]["backend"] == "lightweight-ngram"
     assert (output_dir / "ngram_model.json").exists()
+
+
+def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:
+    def missing(*_args, **_kwargs):
+        raise urllib.error.HTTPError("http://test/catalog/items", 404, "not found", hdrs=None, fp=None)
+
+    monkeypatch.setattr("api.node_client.post", missing)
+
+    assert try_post("http://test", "/catalog/items", {"name": "x"}) is None

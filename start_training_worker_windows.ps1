@@ -41,7 +41,7 @@ Write-Host "Keep this window open. Press Ctrl+C here to stop the worker."
 Write-Host ""
 
 $ArgsList = @(
-  "scripts\run_node.py",
+  "-m", "api.node_client",
   "--server", $Server,
   "--enable-gpu",
   "--contribution-percent", "$ContributionPercent",
