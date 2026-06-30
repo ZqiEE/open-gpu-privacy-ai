@@ -83,7 +83,7 @@ def test_autonomous_code_training_loop_reaches_verified_samples(tmp_path: Path) 
     assert result["failures"]["count"] == 0
 
 
-def test_autonomous_code_training_loop_exports_failed_samples(tmp_path: Path) -> None:
+def test_autonomous_code_training_loop_exports_failed_samples_when_repair_disabled(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     make_failing_repo(repo)
@@ -111,9 +111,50 @@ def test_autonomous_code_training_loop_exports_failed_samples(tmp_path: Path) ->
         fetch=False,
         max_tasks=5,
         run_foundation=False,
+        repair_failures=False,
     )
 
     assert result["ok"] is False
     assert result["stage"] == "no_verified_samples"
     assert result["verified"]["count"] == 0
     assert result["failures"]["count"] == 1
+    assert result["repairs"]["repaired"] == 0
+
+
+def test_autonomous_code_training_loop_repairs_failed_tasks(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    make_failing_repo(repo)
+    sources = tmp_path / "sources.json"
+    sources.write_text(
+        json.dumps(
+            {
+                "schema_version": "ailovanta.github_code_sources.v1",
+                "sources": [
+                    {
+                        "name": "local_repo",
+                        "path": str(repo),
+                        "license_policy": "private_owner_unrestricted",
+                        "enabled": True,
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = AutonomousCodeTrainingLoop(core_path=tmp_path / "missing-core", root=tmp_path / "loop").run_once(
+        sources_path=sources,
+        fetch=False,
+        max_tasks=5,
+        run_foundation=False,
+        max_repair_candidates=8,
+    )
+
+    assert result["ok"] is True
+    assert result["stage"] == "verified_samples_ready"
+    assert result["task_results"]["failed"] == 1
+    assert result["failures"]["count"] == 1
+    assert result["repairs"]["repaired"] == 1
+    assert result["verified"]["count"] == 1

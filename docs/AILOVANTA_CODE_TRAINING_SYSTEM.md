@@ -191,6 +191,9 @@ api/autonomous_code_training_loop.py
 api/code_failure_samples.py
   converts failed executable task runs into negative preference, repair, and reward-signal records
 
+api/code_repair_loop.py
+  generates repair candidates from failed task reports, re-runs verification, and exports accepted/rejected preference pairs
+
 scripts/run_autonomous_code_training_loop.py
   one-command autonomous Ailovanta-Code loop
 
@@ -302,6 +305,27 @@ training_use.reward_signal = true
 
 These records are for repair training, preference learning, ReST/RL reward signals, and diagnostics. They must not be mixed into positive SFT data.
 
+Run failed task reports through the repair loop:
+
+```bash
+python scripts/run_code_repair_loop.py \
+  runtime_data/code_task_reports.json \
+  --output runtime_data/code_repair_results.json \
+  --max-candidates-per-failure 16
+```
+
+The repair loop:
+
+```text
+reads failed executable task reports
+generates bounded repair candidate tasks
+re-runs the same sandboxed verification commands
+keeps only test-passing repairs as verified samples
+exports chosen/rejected preference pairs for repair training and reward learning
+```
+
+The built-in candidate generator starts with deterministic Python operator mutations so the system can self-repair simple failing test/spec tasks without claiming a model solved them. The same loop is designed to accept stronger private model-generated repair candidates later, but the gate remains the executable verifier.
+
 Run verified samples through the owned foundation pipeline:
 
 ```bash
@@ -357,10 +381,12 @@ source manifest / GitHub discovery
 -> sandboxed pytest/compile verification
 -> verified_code_samples.json
 -> failed_code_samples.json for negative/repair/reward signals
+-> code_repair_results.json for auto-repair attempts and preference pairs
+-> repaired passing tasks merged back into verified_code_samples.json
 -> foundation job
 -> core checkpoint execution
 -> public foundation import/runtime binding
 -> run.json audit report
 ```
 
-If no executable task passes, the loop stops at `no_verified_samples` and does not start training. This prevents the system from training on unverified or fake-positive code data.
+If no executable task passes, the loop can attempt bounded repairs. If repairs pass, the repaired candidates become verified samples and training can continue. If neither original tasks nor repairs pass, the loop stops at `no_verified_samples` and does not start training. This prevents the system from training on unverified or fake-positive code data.

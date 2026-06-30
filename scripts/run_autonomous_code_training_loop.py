@@ -28,6 +28,8 @@ def main() -> int:
     parser.add_argument("--target-version", default="candidate")
     parser.add_argument("--max-steps", type=int, default=100)
     parser.add_argument("--training-command", default=None)
+    parser.add_argument("--no-repair", action="store_true")
+    parser.add_argument("--max-repair-candidates", type=int, default=16)
     args = parser.parse_args()
 
     result = AutonomousCodeTrainingLoop(core_path=args.core_path, root=args.root).run_once(
@@ -43,6 +45,8 @@ def main() -> int:
         target_version=args.target_version,
         max_steps=args.max_steps,
         training_command=args.training_command,
+        repair_failures=not args.no_repair,
+        max_repair_candidates=args.max_repair_candidates,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 1

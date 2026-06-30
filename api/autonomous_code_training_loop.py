@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from api.code_task_builder import load_instruction_records, task_from_instruction_record
 from api.code_failure_samples import export_failures_from_reports
+from api.code_repair_loop import repair_failures_from_reports
 from api.foundation_pipeline import run_foundation_pipeline
 from api.github_code_ingest import ingest_sources
 from api.verified_code_foundation import create_job_from_verified_code_export
@@ -41,6 +42,8 @@ class AutonomousCodeTrainingLoop:
         max_steps: int = 100,
         work_dir: str | Path | None = None,
         training_command: str | None = None,
+        repair_failures: bool = True,
+        max_repair_candidates: int = 16,
     ) -> dict[str, Any]:
         run_id = "auto_code_" + uuid4().hex[:12]
         run_dir = self.runs_dir / run_id
@@ -72,10 +75,19 @@ class AutonomousCodeTrainingLoop:
         reports_path = run_dir / "code_task_reports.json"
         reports_path.write_text(json.dumps({"schema_version": "ailovanta.code_task_reports.v1", "items": report_items}, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        verified_path = run_dir / "verified_code_samples.json"
-        verified = export_samples_from_reports(report_items, verified_path)
         failures_path = run_dir / "failed_code_samples.json"
         failures = export_failures_from_reports(report_items, failures_path)
+        repairs_path = run_dir / "code_repair_results.json"
+        repairs = (
+            repair_failures_from_reports(report_items, repairs_path, max_candidates_per_failure=max_repair_candidates)
+            if repair_failures
+            else self._write_empty_repairs(repairs_path)
+        )
+        verified_report_items = report_items + repairs.get("verified_report_items", [])
+        repaired_reports_path = run_dir / "code_task_reports_with_repairs.json"
+        repaired_reports_path.write_text(json.dumps({"schema_version": "ailovanta.code_task_reports.v1", "items": verified_report_items}, ensure_ascii=False, indent=2), encoding="utf-8")
+        verified_path = run_dir / "verified_code_samples.json"
+        verified = export_samples_from_reports(verified_report_items, verified_path)
         foundation = None
         stage = "verified_samples_ready"
         ok = bool(verified.get("count"))
@@ -114,8 +126,10 @@ class AutonomousCodeTrainingLoop:
                 "corpus": str(corpus_path),
                 "tasks": str(task_path),
                 "reports": str(reports_path),
+                "reports_with_repairs": str(repaired_reports_path),
                 "verified_samples": str(verified_path),
                 "failed_samples": str(failures_path),
+                "repairs": str(repairs_path),
             },
             "discovery": discovery,
             "ingest": self._compact_ingest(ingest),
@@ -127,6 +141,7 @@ class AutonomousCodeTrainingLoop:
             },
             "verified": {key: value for key, value in verified.items() if key != "samples"},
             "failures": {key: value for key, value in failures.items() if key != "samples"},
+            "repairs": {key: value for key, value in repairs.items() if key not in {"attempts", "preference_pairs", "verified_report_items"}},
             "foundation": foundation,
             "created_at": round(time(), 3),
         }
@@ -184,6 +199,20 @@ class AutonomousCodeTrainingLoop:
     def _compact_ingest(ingest: dict[str, Any]) -> dict[str, Any]:
         keys = ["ok", "sources", "accepted_sources", "records", "bytes", "languages", "corpus_output", "rights_path", "corpus_mode"]
         return {key: ingest.get(key) for key in keys}
+
+    @staticmethod
+    def _write_empty_repairs(output_path: Path) -> dict[str, Any]:
+        payload = {
+            "schema_version": "ailovanta.code_repair_export.v1",
+            "failed_tasks": 0,
+            "attempted_repairs": 0,
+            "repaired": 0,
+            "attempts": [],
+            "preference_pairs": [],
+            "created_at": round(time(), 3),
+        }
+        output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"ok": True, "failed_tasks": 0, "attempted_repairs": 0, "repaired": 0, "output_path": str(output_path), "verified_report_items": []}
 
 
 def candidate_files_for_record(record: dict[str, Any], max_files: int = 64, max_file_bytes: int = 256_000) -> dict[str, str]:
