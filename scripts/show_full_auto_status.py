@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 from api.artifact_binding import ArtifactBindingStore
 from api.candidate_failure_actions import action_summary
+from api.compat_check import check_local_stack, check_real_training_requirements
 from api.continuous_training_ledger import ledger_summary, load_ledger, sync_ledger_with_jobs
 from api.gpu_probe import detect_gpu
 from api.github_source_frontier import load_frontier
@@ -28,6 +29,7 @@ def main() -> int:
     latest_candidate_binding = bindings.latest_for_model_statuses("ailovanta-owned:candidate", ("candidate",))
     repair_tasks = repair_store.list_tasks(limit=20)
     jobs = scheduler.list_jobs(limit=200)
+    latest_real_job = next((job for job in jobs if (job.get("payload") or {}).get("real") or (job.get("payload") or {}).get("use_transformers")), None)
     ledger_path = ROOT / "runtime_data" / "continuous_training_ledger.json"
     sync_ledger_with_jobs(ledger_path, jobs)
     training_ledger = load_ledger(ledger_path)
@@ -41,6 +43,8 @@ def main() -> int:
         "ok": True,
         "state": state,
         "gpu": detect_gpu(),
+        "local_training_stack": check_local_stack(),
+        "latest_real_training_preflight": check_real_training_requirements(latest_real_job.get("payload") or {}, detect_gpu()) if latest_real_job else None,
         "scheduler": scheduler.status(),
         "latest_owned_binding": latest_active_binding,
         "latest_owned_candidate": latest_candidate_binding,

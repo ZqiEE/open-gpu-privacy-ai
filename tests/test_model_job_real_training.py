@@ -96,15 +96,12 @@ def test_run_model_job_strict_real_training_does_not_fallback_to_lightweight(tmp
     record = json.loads((output_dir / "output.json").read_text(encoding="utf-8"))
 
     assert result["status"] == "failed"
-    assert result["metrics"]["backend"] in {
-        "transformers_deps_missing",
-        "transformers_training_failed",
-        "peft_setup_failed",
-        "qlora_deps_missing",
-    }
+    assert result["metrics"]["backend"] == "real_training_preflight_failed"
     assert result["metrics"]["score"] == 0.0
     assert not (output_dir / "ngram_model.json").exists()
     assert record["kind"] == "training_failed"
+    assert record["real_training_preflight"]["ok"] is False
+    assert "base_model_path_missing" in record["real_training_preflight"]["blockers"]
 
 
 def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:

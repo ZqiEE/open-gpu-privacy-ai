@@ -42,6 +42,31 @@ Check state:
 .\.venv\Scripts\python.exe scripts\show_full_auto_status.py
 ```
 
+The status output includes:
+
+```text
+gpu
+local_training_stack
+latest_real_training_preflight
+jobs
+nodes
+latest_owned_candidate
+```
+
+Use `latest_real_training_preflight.blockers` as the authoritative local reason when real model training did not run. Common blockers are:
+
+```text
+gpu_required_but_node_has_no_gpu
+cuda_required_but_torch_cuda_unavailable
+missing_module:torch
+missing_module:transformers
+missing_module:datasets
+missing_module:peft
+missing_module:bitsandbytes
+base_model_path_missing
+qlora_requires_linux_cuda_runtime
+```
+
 Stop all full-auto child processes:
 
 ```powershell

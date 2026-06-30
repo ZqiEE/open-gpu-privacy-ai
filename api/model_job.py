@@ -7,6 +7,8 @@ from pathlib import Path
 from time import time
 from typing import Any
 
+from api.compat_check import check_real_training_requirements
+
 
 class ModelJobError(RuntimeError):
     pass
@@ -22,9 +24,14 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
     base_model = payload.get("base_model") or "local"
     max_steps = int(payload.get("max_steps") or payload.get("steps") or 10)
     use_real = bool(payload.get("real") or payload.get("use_transformers") or payload.get("peft") or payload.get("qlora"))
+    preflight: dict[str, Any] | None = None
 
     if use_real:
-        result = _run_transformers_job(base_model, data_path, out_dir, max_steps, payload)
+        preflight = check_real_training_requirements(payload, profile)
+        if not preflight["ok"] and not bool(payload.get("allow_lightweight_fallback", True)):
+            result = _training_failed("real_training_preflight_failed", "real training preflight failed: " + ", ".join(preflight["blockers"]))
+        else:
+            result = _run_transformers_job(base_model, data_path, out_dir, max_steps, payload)
     else:
         result = _write_portable_output(base_model, data_path, out_dir, max_steps)
 
@@ -48,6 +55,8 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "metrics": metrics,
         "backend_message": result["message"],
     }
+    if preflight is not None:
+        record["real_training_preflight"] = preflight
     (out_dir / "output.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     status = "failed" if result.get("ok") is False else "candidate"
     return {
