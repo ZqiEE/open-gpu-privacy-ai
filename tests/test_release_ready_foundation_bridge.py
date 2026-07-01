@@ -16,6 +16,7 @@ def test_release_ready_mounts_foundation_bridge_routes() -> None:
         "/artifact-bindings",
         "/model-monitor/shadow",
         "/model-monitor/live",
+        "/ops/foundation-artifact/ready",
         "/ops/release/gate",
     }
     missing = sorted(required - paths)
