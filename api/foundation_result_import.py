@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,9 @@ from api.chain_registry import ChainRegistry
 from api.core_result_store import CoreResultStore
 from api.runtime_ref import check_runtime_ref
 from api.runtime_store import RuntimeStore
+
+_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+_BOOTSTRAP_HASHES = {"sha256:local-owned-candidate"}
 
 
 def load_foundation_result(path: str | Path) -> dict[str, Any]:
@@ -26,6 +30,16 @@ def validate_foundation_result(payload: dict[str, Any]) -> None:
     for key in ["artifact_hash", "model_id", "version", "source_plan_id"]:
         if not artifact.get(key):
             raise ValueError(f"missing artifact field: {key}")
+    artifact_hash = str(artifact.get("artifact_hash") or "")
+    if artifact_hash in _BOOTSTRAP_HASHES:
+        raise ValueError("bootstrap artifact hash is not a foundation result")
+    if not _SHA256_RE.match(artifact_hash):
+        raise ValueError("artifact_hash must be sha256:<64 lowercase hex chars>")
+    if not (artifact.get("backend_ref") or artifact.get("checkpoint_uri")):
+        raise ValueError("missing artifact field: backend_ref or checkpoint_uri")
+    status = str(artifact.get("promotion_status", "candidate"))
+    if status not in {"candidate", "promoted", "rejected"}:
+        raise ValueError("unsupported promotion_status")
 
 
 def foundation_result_to_core_manifest(payload: dict[str, Any]) -> dict[str, Any]:
