@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from api.foundation_job_export import export_foundation_job
+from api.foundation_result_finalize import finalize_foundation_result_file
 from api.foundation_result_import import import_foundation_result_file
 
 
@@ -38,6 +39,7 @@ def run_foundation_pipeline(
     ]
     subprocess.run(command, cwd=core_root, check=True)
 
+    finalized = finalize_foundation_result_file(result_path, write=True)
     imported = import_foundation_result_file(result_path)
     return {
         "ok": True,
@@ -45,6 +47,7 @@ def run_foundation_pipeline(
         "core_path": str(core_root),
         "export_path": str(export_path),
         "result_path": str(result_path),
+        "finalized_result": finalized,
         "import_result": imported,
     }
 
