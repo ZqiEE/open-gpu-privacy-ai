@@ -27,6 +27,7 @@ from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRequest
 from api.runtime_store import RuntimeStore
 from api.store_factory import create_scheduler_store, store_status
 from api.training import TrainingKind, TrainingPlanner
+from api.training_worker_result_validator import TrainingWorkerResultStore, validate_training_worker_result
 from api.training_job_export import export_training_job
 from api.training_pipeline import run_training_pipeline
 from api.usage_store import UsageStore
@@ -202,6 +203,10 @@ class WorkerResultValidationRequest(BaseModel):
     apply_reputation: bool = True
 
 
+class TrainingWorkerResultValidationRequest(BaseModel):
+    worker_result: dict[str, Any]
+
+
 def bearer_token(authorization: str | None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Bearer token required")
@@ -240,6 +245,10 @@ def owned_model_target(model_id: str, version: str) -> tuple[str, str]:
 
 def worker_validation_store() -> WorkerResultValidationStore:
     return WorkerResultValidationStore(os.getenv("AILOVANTA_WORKER_VALIDATION_PATH", "runtime_data/worker_result_validations.sqlite3"))
+
+
+def training_worker_result_store() -> TrainingWorkerResultStore:
+    return TrainingWorkerResultStore(os.getenv("AILOVANTA_TRAINING_WORKER_RESULT_PATH", "runtime_data/training_worker_result_receipts.sqlite3"))
 
 
 def worker_reputation_store() -> ReputationOps:
@@ -578,6 +587,21 @@ def validate_worker_result_route(body: WorkerResultValidationRequest) -> dict:
 @app.get("/worker-results/validations")
 def list_worker_result_validations(node_id: str | None = None, limit: int = 100) -> dict:
     return {"receipts": worker_validation_store().list(node_id=node_id, limit=limit)}
+
+
+@app.post("/training/worker-results/validate")
+def validate_training_worker_result_route(body: TrainingWorkerResultValidationRequest) -> dict:
+    return {
+        "receipt": validate_training_worker_result(
+            body.worker_result,
+            store=training_worker_result_store(),
+        )
+    }
+
+
+@app.get("/training/worker-results/validations")
+def list_training_worker_result_validations(node_id: str | None = None, job_id: str | None = None, limit: int = 100) -> dict:
+    return {"receipts": training_worker_result_store().list(node_id=node_id, job_id=job_id, limit=limit)}
 
 
 @app.post("/ailovanta/v1/run")

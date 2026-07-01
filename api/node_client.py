@@ -15,6 +15,7 @@ from api.candidate_failure_actions import mark_action_submitted
 from api.gpu_probe import detect_gpu
 from api.model_job import run_model_job
 from api.training_artifact_binding import bind_local_training_artifact
+from api.training_worker_result_validator import build_training_worker_result
 
 
 def auth_headers() -> dict[str, str]:
@@ -68,6 +69,22 @@ def submit_failure_actions(server: str, binding: dict[str, Any] | None) -> list[
         marked = mark_action_submitted(str(action.get("action_id")), response)
         submitted.append({"action_id": action.get("action_id"), "response": response, "marked": marked})
     return submitted
+
+
+def submit_training_worker_result(
+    server: str,
+    *,
+    job: dict[str, Any],
+    node_id: str,
+    profile: dict[str, Any],
+    output: dict[str, Any],
+    binding: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    worker_result = build_training_worker_result(job=job, node_id=node_id, profile=profile, output=output, binding=binding)
+    response = try_post(server, "/training/worker-results/validate", {"worker_result": worker_result})
+    if response is None:
+        return {"worker_result": worker_result, "receipt": None, "reason": "training_worker_result_validation_endpoint_missing"}
+    return {"worker_result": worker_result, "receipt": response.get("receipt")}
 
 
 def connection_unavailable(exc: Exception) -> bool:
@@ -153,7 +170,8 @@ def main() -> int:
             if output.get("status") == "failed":
                 summary = f"node failed task on {profile['device_name']}; reason={output.get('notes')}"
                 result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "failed", "output_summary": summary})
-                print(json.dumps({"job_id": job_id, "result": result, "training_output": output}, ensure_ascii=False, indent=2))
+                training_worker_validation = submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=None)
+                print(json.dumps({"job_id": job_id, "result": result, "training_output": output, "training_worker_validation": training_worker_validation}, ensure_ascii=False, indent=2))
                 post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
                 if args.once:
                     return 0
@@ -165,8 +183,9 @@ def main() -> int:
             summary = f"node finished task on {profile['device_name']}; output={output['location']}"
             result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
             binding = bind_local_training_artifact(output)
+            training_worker_validation = submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=binding)
             failure_action_submissions = submit_failure_actions(args.server, binding)
-            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding, "failure_action_submissions": failure_action_submissions}, ensure_ascii=False, indent=2))
+            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding, "training_worker_validation": training_worker_validation, "failure_action_submissions": failure_action_submissions}, ensure_ascii=False, indent=2))
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
         elif args.once:
             print(json.dumps({"ok": True, "node_id": node_id, "message": "no job"}, ensure_ascii=False))

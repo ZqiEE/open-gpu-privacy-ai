@@ -7,7 +7,7 @@ import pytest
 from api.artifact_hash import sha256_path
 from api.artifact_integrity import verify_artifact_uri
 from api.model_job import resolve_dataset_path, run_model_job
-from api.node_client import make_output, submit_failure_actions, try_post
+from api.node_client import make_output, submit_failure_actions, submit_training_worker_result, try_post
 from api.secure_artifact_pack import generate_artifact_key
 from api.training_artifact_binding import bind_local_training_artifact
 
@@ -395,3 +395,31 @@ def test_node_client_submits_candidate_failure_retrain_action(monkeypatch) -> No
     assert posted[0]["path"] == "/training/jobs"
     assert posted[0]["body"]["name"] == "retry"
     assert submitted[0]["marked"]["status"] == "submitted"
+
+
+def test_node_client_submits_training_worker_result(monkeypatch) -> None:
+    posted = []
+
+    def fake_try_post(_server: str, path: str, body: dict):
+        posted.append({"path": path, "body": body})
+        return {"receipt": {"passed": True, "receipt_id": "twr-test"}}
+
+    monkeypatch.setattr("api.node_client.try_post", fake_try_post)
+
+    submitted = submit_training_worker_result(
+        "http://api",
+        job={"id": "train-real-1", "type": "lora_micro", "payload": {"real": True, "use_transformers": True, "lora": True, "requires_gpu": True}},
+        node_id="node-gpu-1",
+        profile={"device_name": "gpu", "cpu_threads": 16, "memory_gb": 64, "has_gpu": True, "gpu_name": "gpu"},
+        output={
+            "source_job_id": "train-real-1",
+            "status": "candidate",
+            "metrics": {"backend": "lora"},
+            "training_runtime_evidence": {"requested_real_training": True, "actual_backend": "lora", "real_training_executed": True, "gpu_execution_evidence": True},
+        },
+        binding={"binding_id": "binding-1", "artifact_hash": "sha256:" + "a" * 64, "metadata": {"source_job_id": "train-real-1"}},
+    )
+
+    assert posted[0]["path"] == "/training/worker-results/validate"
+    assert posted[0]["body"]["worker_result"]["schema_version"] == "ailovanta.training_worker_result.v1"
+    assert submitted["receipt"]["receipt_id"] == "twr-test"
