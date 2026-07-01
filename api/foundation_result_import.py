@@ -27,7 +27,7 @@ def validate_foundation_result(payload: dict[str, Any]) -> None:
     if not payload.get("artifact"):
         raise ValueError("missing foundation artifact")
     artifact = payload["artifact"]
-    for key in ["artifact_hash", "model_id", "version", "source_plan_id"]:
+    for key in ["artifact_id", "artifact_hash", "model_id", "version", "source_plan_id"]:
         if not artifact.get(key):
             raise ValueError(f"missing artifact field: {key}")
     artifact_hash = str(artifact.get("artifact_hash") or "")
