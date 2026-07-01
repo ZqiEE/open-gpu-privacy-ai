@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from api.backup_store import BackupStore
+from api.foundation_artifact_ready import check_foundation_artifact_ready
 from api.owned_ready_probe import check_owned_chat_default
 from api.prod_ready import check_production_ready
 from api.result_guard_check import check_result_guard
@@ -45,6 +46,7 @@ def check_production_ready_plus(result_path: str | Path | None = None, route_key
     base = check_production_ready(result_path=result_path, route_key=route_key, verify_bytes=verify_bytes)
     runtime_route = RuntimeReadiness().check_route(route_key)
     default_chat = check_owned_chat_default(route_key)
+    foundation_artifact = check_foundation_artifact_ready()
     result_guard = check_result_guard()
     abuse = check_abuse_controls()
     backups = check_backup_controls()
@@ -55,6 +57,8 @@ def check_production_ready_plus(result_path: str | Path | None = None, route_key
         blockers.append("runtime_route:" + str(runtime_route.get("reason")))
     if not default_chat.get("owned_model_ready"):
         blockers.append("owned_chat_default:not_ready")
+    if not foundation_artifact.get("ok"):
+        blockers.extend("foundation_artifact:" + str(item) for item in foundation_artifact.get("blockers", []))
     if not result_guard.get("ok"):
         blockers.extend("result_guard:" + str(item) for item in result_guard.get("blockers", []))
     if not abuse.get("ok"):
@@ -63,6 +67,7 @@ def check_production_ready_plus(result_path: str | Path | None = None, route_key
         blockers.extend("backup:" + str(item) for item in backups.get("blockers", []))
     if not review.get("ok"):
         blockers.extend("review:" + str(item) for item in review.get("blockers", []))
+    warnings.extend("foundation_artifact:" + str(item) for item in foundation_artifact.get("warnings", []))
     warnings.extend("abuse:" + str(item) for item in abuse.get("warnings", []))
     warnings.extend("review:" + str(item) for item in review.get("warnings", []))
-    return {**base, "ok": not blockers, "stage": "production_ready" if not blockers else "blocked", "blockers": sorted(set(blockers)), "warnings": sorted(set(warnings)), "runtime_route": runtime_route, "owned_chat_default": default_chat, "result_guard": result_guard, "abuse_controls": abuse, "backup_controls": backups, "release_review": review}
+    return {**base, "ok": not blockers, "stage": "production_ready" if not blockers else "blocked", "blockers": sorted(set(blockers)), "warnings": sorted(set(warnings)), "runtime_route": runtime_route, "owned_chat_default": default_chat, "foundation_artifact": foundation_artifact, "result_guard": result_guard, "abuse_controls": abuse, "backup_controls": backups, "release_review": review}
