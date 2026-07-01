@@ -630,6 +630,7 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
 
     owned_required = require_owned_chat()
     owned_error = None
+    owned_error_readiness = None
     if owned_required or prefer_owned_chat():
         from api.owned_model_runtime import OwnedModelRequest, OwnedModelRuntime, OwnedModelUnavailable
 
@@ -646,6 +647,7 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
             )
         except OwnedModelUnavailable as exc:
             owned_error = str(exc)
+            owned_error_readiness = getattr(exc, "readiness", {}) or None
             if owned_required:
                 answer = "Ailovanta owned model runtime is not ready: " + owned_error
                 assistant_message = conversations.add_message(convo["id"], "assistant", answer, source="owned-runtime-unavailable", model_id=owned_model_id)
@@ -657,6 +659,8 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
                     "assistant_message": assistant_message,
                     "context_messages_used": len(context_messages),
                     "owned_model_ready": False,
+                    "self_trained_ready": False,
+                    "model_readiness": owned_error_readiness,
                     "model_id": owned_model_id,
                     "version": owned_version,
                     "fallback_allowed": False,
@@ -685,6 +689,7 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
                     "owned_selection": "preferred" if not owned_required else "required",
                 },
             )
+            owned_model_ready = bool(result.model_readiness.get("owned_model_ready"))
             return {
                 "conversation_id": convo["id"],
                 "answer": result.answer,
@@ -693,7 +698,7 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
                 "worker_validation": worker_validation,
                 "assistant_message": assistant_message,
                 "context_messages_used": len(context_messages),
-                "owned_model_ready": True,
+                "owned_model_ready": owned_model_ready,
                 "self_trained_ready": bool(result.model_readiness.get("self_trained_ready")),
                 "model_readiness": result.model_readiness,
                 "model_id": result.model_id,
@@ -714,6 +719,8 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
         "assistant_message": assistant_message,
         "context_messages_used": len(context_messages),
         "owned_model_ready": False,
+        "self_trained_ready": False,
+        "model_readiness": owned_error_readiness,
         "owned_runtime_error": owned_error,
         "fallback_allowed": True,
     }

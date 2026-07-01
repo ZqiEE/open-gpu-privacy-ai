@@ -248,11 +248,12 @@ def run_testnet_v0_check(work_dir: str | Path | None = None) -> dict[str, Any]:
         chat_body = chat_response.json()
         checks.append(
             check_item(
-                "owned_chat_returns_validated_worker_answer",
+                "owned_chat_blocks_unpromoted_checkpoint",
                 chat_response.status_code == 200
-                and chat_body.get("owned_model_ready") is True
-                and chat_body.get("worker_validation", {}).get("passed") is True
-                and chat_body.get("runtime_route", {}).get("assignment", {}).get("runtime_id") == runtime_id,
+                and chat_body.get("owned_model_ready") is False
+                and chat_body.get("self_trained_ready") is False
+                and chat_body.get("source") == "owned-runtime-unavailable"
+                and chat_body.get("model_readiness", {}).get("stage") == "bootstrap_connected",
                 chat_body,
             )
         )
@@ -261,11 +262,11 @@ def run_testnet_v0_check(work_dir: str | Path | None = None) -> dict[str, Any]:
         dashboard_body = dashboard.json()
         checks.append(
             check_item(
-                "owned_runtime_dashboard_audits_chain",
+                "owned_runtime_dashboard_reports_unready_chain",
                 dashboard.status_code == 200
-                and dashboard_body.get("ok") is True
-                and dashboard_body.get("worker_validation", {}).get("recent_receipt_count", 0) >= 1
-                and dashboard_body.get("reputation", {}).get("event_count", 0) >= 1,
+                and dashboard_body.get("ok") is False
+                and "worker_validation_receipt_missing" in dashboard_body.get("blockers", [])
+                and dashboard_body.get("model_readiness", {}).get("self_trained_ready") is False,
                 dashboard_body,
             )
         )

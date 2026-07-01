@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from api.artifact_binding import ArtifactBindingStore
 from api.main import app, runtime_registry
 from api.node_trust import NodeTrustStore
+from api.owned_promotion_proof import build_owned_promotion_proof
 from api.route_book import RouteBook
 from api.worker_transport import WorkerInferenceResult
 
@@ -55,6 +56,57 @@ def seed_active_owned_binding_and_route(monkeypatch, tmp_path) -> None:
     RouteBook(tmp_path / "route_book.sqlite3").set_active("owned-chat/default", "ailovanta-owned:candidate", binding_id=binding["binding_id"], reason="test")
 
 
+def seed_ready_owned_binding_and_route(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", str(tmp_path / "artifact_bindings.sqlite3"))
+    monkeypatch.setenv("AILOVANTA_ROUTE_BOOK_PATH", str(tmp_path / "route_book.sqlite3"))
+    artifact = tmp_path / "owned-transformers"
+    artifact.mkdir()
+    artifact_hash = "sha256:" + "a" * 64
+    store = ArtifactBindingStore(tmp_path / "artifact_bindings.sqlite3")
+    binding = store.register_binding(
+        {"model_id": "ailovanta-owned", "version": "candidate", "model_key": "ailovanta-owned:candidate", "manifest_hash": "sha256:model", "status": "active"},
+        {"artifact_id": "artifact-owned", "artifact_hash": artifact_hash, "checkpoint_uri": artifact.resolve().as_uri()},
+        backend_kind="transformers-local",
+        backend_ref=artifact.resolve().as_uri(),
+        status="active",
+        metadata={
+            "promotion_gate": {
+                "ok": True,
+                "decision": "promote_active",
+                "blockers": [],
+                "code_generation_eval": {"ok": True, "score": 1.0, "passed_cases": 2, "total_cases": 2, "backend_kind": "transformers-local"},
+                "model_eval": {
+                    "runtime_evidence": {
+                        "requested_backend": "qlora",
+                        "actual_backend": "qlora",
+                        "real_training_executed": True,
+                        "fallback_used": False,
+                        "gpu_execution_evidence": {"device_count": 1},
+                        "trained_rows": 64,
+                    }
+                },
+                "artifact_integrity": {"ok": True, "actual_hash": artifact_hash, "expected_hash": artifact_hash},
+                "artifact_distribution": {
+                    "ok": True,
+                    "distribution": {"manifest_hash": "sha256:" + "b" * 64, "storage_artifact_hash": artifact_hash},
+                },
+            },
+            "training_worker_receipt": {
+                "receipt_id": "receipt-1",
+                "receipt_hash": "sha256:" + "c" * 64,
+                "passed": True,
+                "node_id": "node-1",
+                "job_id": "job-1",
+                "artifact_hash": artifact_hash,
+            },
+            "route_publish": {"ok": True},
+        },
+    )
+    proof = build_owned_promotion_proof(binding, runtime_id="rt-owned-1", node_id="node-owned-1", route_key="owned-chat/default")
+    store.update_metadata(binding["binding_id"], {**binding["metadata"], "promotion_proof": proof})
+    RouteBook(tmp_path / "route_book.sqlite3").set_active("owned-chat/default", "ailovanta-owned:candidate", binding_id=binding["binding_id"], reason="test")
+
+
 def test_native_chat_requires_owned_runtime(monkeypatch, tmp_path) -> None:
     import api.owned_model_runtime as owned_module
 
@@ -98,24 +150,22 @@ def test_native_chat_requires_owned_runtime(monkeypatch, tmp_path) -> None:
     response = client.post("/ailovanta/v1/chat", json={"prompt": "hello"})
     assert response.status_code == 200
     body = response.json()
-    assert body["owned_model_ready"] is True
+    assert body["owned_model_ready"] is False
     assert body["self_trained_ready"] is False
-    assert body["answer"] == "owned worker answer"
-    assert body["source"] == "test-owned-worker"
-    assert body["runtime_route"]["assignment"]["runtime_id"] == "rt-owned-1"
-    assert body["worker_validation"]["passed"] is True
-    assert body["worker_validation"]["receipt_id"].startswith("wrv_")
+    assert body["source"] == "owned-runtime-unavailable"
+    assert body["fallback_allowed"] is False
+    assert body["model_readiness"]["stage"] == "bootstrap_connected"
+    assert "not self-trained ready" in body["answer"]
 
 
-def test_native_chat_prefers_owned_runtime_by_default(monkeypatch, tmp_path) -> None:
+def test_native_chat_uses_owned_worker_only_when_self_trained_ready(monkeypatch, tmp_path) -> None:
     import api.owned_model_runtime as owned_module
 
-    monkeypatch.delenv("AILOVANTA_REQUIRE_OWNED_MODEL", raising=False)
-    monkeypatch.delenv("AILOVANTA_PREFER_OWNED_MODEL", raising=False)
+    monkeypatch.setenv("AILOVANTA_REQUIRE_OWNED_MODEL", "true")
     monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
     monkeypatch.setenv("AILOVANTA_WORKER_VALIDATION_PATH", str(tmp_path / "worker_validations.sqlite3"))
     monkeypatch.setattr(owned_module, "WorkerInferenceClient", lambda: FakeWorkerClient())
-    seed_active_owned_binding_and_route(monkeypatch, tmp_path)
+    seed_ready_owned_binding_and_route(monkeypatch, tmp_path)
     NodeTrustStore().register("node-owned-1", "secret", trust_score=0.9)
     runtime_registry.clear()
     client = TestClient(app)
@@ -153,9 +203,33 @@ def test_native_chat_prefers_owned_runtime_by_default(monkeypatch, tmp_path) -> 
 
     assert response.status_code == 200
     assert body["owned_model_ready"] is True
-    assert body["self_trained_ready"] is False
+    assert body["self_trained_ready"] is True
     assert body["source"] == "test-owned-worker"
     assert body["answer"] == "owned worker answer"
+
+
+def test_native_chat_prefers_owned_runtime_by_default_but_falls_back_if_not_self_trained(monkeypatch, tmp_path) -> None:
+    import api.owned_model_runtime as owned_module
+
+    monkeypatch.delenv("AILOVANTA_REQUIRE_OWNED_MODEL", raising=False)
+    monkeypatch.delenv("AILOVANTA_PREFER_OWNED_MODEL", raising=False)
+    monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
+    monkeypatch.setenv("AILOVANTA_WORKER_VALIDATION_PATH", str(tmp_path / "worker_validations.sqlite3"))
+    monkeypatch.setattr(owned_module, "WorkerInferenceClient", lambda: FakeWorkerClient())
+    seed_active_owned_binding_and_route(monkeypatch, tmp_path)
+    NodeTrustStore().register("node-owned-1", "secret", trust_score=0.9)
+    runtime_registry.clear()
+    client = TestClient(app)
+
+    response = client.post("/ailovanta/v1/chat", json={"prompt": "hello"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["owned_model_ready"] is False
+    assert body["self_trained_ready"] is False
+    assert body["model_readiness"]["stage"] == "bootstrap_connected"
+    assert "not self-trained ready" in body["owned_runtime_error"]
+    assert body["fallback_allowed"] is True
 
 
 def test_native_chat_owned_mode_does_not_fallback(monkeypatch, tmp_path) -> None:

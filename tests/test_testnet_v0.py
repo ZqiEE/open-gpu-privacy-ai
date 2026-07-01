@@ -18,7 +18,7 @@ def test_testnet_v0_check_passes(tmp_path) -> None:
         "build_artifact_chunk_manifest",
         "register_artifact_binding",
         "publish_owned_chat_route",
-        "owned_chat_returns_validated_worker_answer",
-        "owned_runtime_dashboard_audits_chain",
+        "owned_chat_blocks_unpromoted_checkpoint",
+        "owned_runtime_dashboard_reports_unready_chain",
     ]
     assert all(item["ok"] for item in result["checks"])

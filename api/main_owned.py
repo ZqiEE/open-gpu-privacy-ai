@@ -48,6 +48,7 @@ def ailovanta_owned_chat(body: OwnedChatRequest) -> dict:
         )
     except OwnedModelUnavailable as exc:
         answer = "Ailovanta owned model runtime is not ready: " + str(exc)
+        readiness = getattr(exc, "readiness", {}) or None
         conversations.add_message(convo["id"], "assistant", answer, source="owned-runtime-unavailable", model_id=body.model_id)
         return {
             "ok": False,
@@ -57,6 +58,8 @@ def ailovanta_owned_chat(body: OwnedChatRequest) -> dict:
             "model_id": body.model_id,
             "version": body.version,
             "owned_model_ready": False,
+            "self_trained_ready": False,
+            "model_readiness": readiness,
         }
 
     conversations.add_message(convo["id"], "assistant", result.answer, source=result.source, model_id=result.model_id)
@@ -70,5 +73,7 @@ def ailovanta_owned_chat(body: OwnedChatRequest) -> dict:
         "version": result.version,
         "runtime_route": result.runtime_route,
         "policy_mode": result.policy_mode,
-        "owned_model_ready": True,
+        "owned_model_ready": bool(result.model_readiness.get("owned_model_ready")),
+        "self_trained_ready": bool(result.model_readiness.get("self_trained_ready")),
+        "model_readiness": result.model_readiness,
     }

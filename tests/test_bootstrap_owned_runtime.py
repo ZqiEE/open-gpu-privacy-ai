@@ -7,7 +7,7 @@ from api.runtime_forwarder import RuntimeEndpointStore
 from scripts.bootstrap_owned_runtime import bootstrap_owned_runtime
 
 
-def test_bootstrap_owned_runtime_enables_owned_chat(monkeypatch, tmp_path) -> None:
+def test_bootstrap_owned_runtime_is_connected_but_not_self_trained_ready(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
     monkeypatch.setenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", str(tmp_path / "artifact_bindings.sqlite3"))
     monkeypatch.setenv("AILOVANTA_ROUTE_BOOK_PATH", str(tmp_path / "route_book.sqlite3"))
@@ -25,11 +25,11 @@ def test_bootstrap_owned_runtime_enables_owned_chat(monkeypatch, tmp_path) -> No
     assert result["ok"] is True
     assert RuntimeEndpointStore(tmp_path / "runtime_endpoints.json").get("rt-owned-1")["url"] == "inprocess://ailovanta-worker"
     assert response.status_code == 200
-    assert body["owned_model_ready"] is True
+    assert body["owned_model_ready"] is False
     assert body["self_trained_ready"] is False
     assert body["model_readiness"]["stage"] == "bootstrap_connected"
-    assert body["source"] == "ailovanta-worker"
-    assert "不是已训练完成" in body["answer"]
+    assert body["fallback_allowed"] is True
+    assert "not self-trained ready" in body["owned_runtime_error"]
     assert "Loaded the local checkpoint metadata" not in body["answer"]
 
 

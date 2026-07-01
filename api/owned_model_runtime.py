@@ -38,7 +38,9 @@ class OwnedModelResult:
 
 
 class OwnedModelUnavailable(RuntimeError):
-    pass
+    def __init__(self, message: str, readiness: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.readiness = readiness or {}
 
 
 class OwnedModelRuntime:
@@ -84,6 +86,16 @@ class OwnedModelRuntime:
         report = check_runtime_ref(binding)
         if not report.get("ready"):
             raise OwnedModelUnavailable("artifact binding is not locally reachable: " + str(report.get("reason")))
+        readiness = classify_owned_model_readiness(binding)
+        if readiness.get("self_trained_ready") is not True:
+            blockers = ",".join(str(item) for item in readiness.get("blockers", [])) or "unknown"
+            raise OwnedModelUnavailable(
+                "owned model is not self-trained ready: stage="
+                + str(readiness.get("stage"))
+                + "; blockers="
+                + blockers,
+                readiness=readiness,
+            )
         return binding
 
     def generate(self, request: OwnedModelRequest) -> OwnedModelResult:
