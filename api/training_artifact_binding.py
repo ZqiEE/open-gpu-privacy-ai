@@ -7,6 +7,7 @@ from api.artifact_hash import sha256_path
 from api.artifact_binding import ArtifactBindingStore
 from api.artifact_distribution import distribution_metadata, prepare_local_artifact_distribution
 from api.candidate_failure_actions import plan_failure_actions
+from api.owned_route_publisher import publish_owned_route_if_active
 from api.replica_maintenance import run_replica_maintenance_once
 from api.runtime_ref import to_local_path
 from api.training_artifact_gate import evaluate_training_artifact_binding
@@ -98,6 +99,8 @@ def bind_local_training_artifact(
     binding = store.update_metadata(binding["binding_id"], updated_metadata) or binding
     if gate.get("ok"):
         binding = store.set_status(binding["binding_id"], "active") or binding
+        route_publish = publish_owned_route_if_active(binding, bindings=store)
+        binding = _append_route_publish_metadata(store, binding, route_publish)
     return binding
 
 
@@ -127,6 +130,8 @@ def attach_training_worker_receipt(
     updated = store.update_metadata(updated["binding_id"], updated_metadata) or {**updated, "metadata": updated_metadata}
     if gate.get("ok"):
         updated = store.set_status(updated["binding_id"], "active") or updated
+        route_publish = publish_owned_route_if_active(updated, bindings=store)
+        updated = _append_route_publish_metadata(store, updated, route_publish)
     return updated
 
 
@@ -187,3 +192,23 @@ def _compact_training_worker_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         "created_at",
     ]
     return {key: receipt.get(key) for key in keys if key in receipt}
+
+
+def _append_route_publish_metadata(store: ArtifactBindingStore, binding: dict[str, Any], route_publish: dict[str, Any]) -> dict[str, Any]:
+    metadata = {
+        **(binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}),
+        "route_publish": _compact_route_publish(route_publish),
+    }
+    return store.update_metadata(binding["binding_id"], metadata) or {**binding, "metadata": metadata}
+
+
+def _compact_route_publish(route_publish: dict[str, Any]) -> dict[str, Any]:
+    route = route_publish.get("route") if isinstance(route_publish.get("route"), dict) else {}
+    return {
+        "ok": route_publish.get("ok"),
+        "reason": route_publish.get("reason"),
+        "route_key": route.get("route_key"),
+        "model_key": route.get("model_key"),
+        "binding_id": route.get("binding_id"),
+        "status": route.get("status"),
+    }
