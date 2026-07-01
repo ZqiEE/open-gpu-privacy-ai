@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
+from api.artifact_binding import ArtifactBindingStore
 from api.main import app, runtime_registry
 from api.node_trust import NodeTrustStore
+from api.route_book import RouteBook
 from api.worker_transport import WorkerInferenceResult
 
 
@@ -37,6 +39,22 @@ class FakeWorkerClient:
         )
 
 
+def seed_active_owned_binding_and_route(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", str(tmp_path / "artifact_bindings.sqlite3"))
+    monkeypatch.setenv("AILOVANTA_ROUTE_BOOK_PATH", str(tmp_path / "route_book.sqlite3"))
+    artifact = tmp_path / "owned-model.json"
+    artifact.write_text('{"schema":"test"}', encoding="utf-8")
+    binding = ArtifactBindingStore(tmp_path / "artifact_bindings.sqlite3").register_binding(
+        {"model_id": "ailovanta-owned", "version": "candidate", "model_key": "ailovanta-owned:candidate", "manifest_hash": "sha256:model", "status": "active"},
+        {"artifact_id": "artifact-owned", "artifact_hash": "sha256:" + "a" * 64, "checkpoint_uri": artifact.resolve().as_uri()},
+        backend_kind="checkpoint-artifact",
+        backend_ref=artifact.resolve().as_uri(),
+        status="active",
+        metadata={"promotion_gate": {"ok": True}},
+    )
+    RouteBook(tmp_path / "route_book.sqlite3").set_active("owned-chat/default", "ailovanta-owned:candidate", binding_id=binding["binding_id"], reason="test")
+
+
 def test_native_chat_requires_owned_runtime(monkeypatch, tmp_path) -> None:
     import api.owned_model_runtime as owned_module
 
@@ -44,6 +62,7 @@ def test_native_chat_requires_owned_runtime(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
     monkeypatch.setenv("AILOVANTA_WORKER_VALIDATION_PATH", str(tmp_path / "worker_validations.sqlite3"))
     monkeypatch.setattr(owned_module, "WorkerInferenceClient", lambda: FakeWorkerClient())
+    seed_active_owned_binding_and_route(monkeypatch, tmp_path)
     NodeTrustStore().register("node-owned-1", "secret", trust_score=0.9)
     runtime_registry.clear()
     client = TestClient(app)
@@ -95,6 +114,7 @@ def test_native_chat_prefers_owned_runtime_by_default(monkeypatch, tmp_path) -> 
     monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
     monkeypatch.setenv("AILOVANTA_WORKER_VALIDATION_PATH", str(tmp_path / "worker_validations.sqlite3"))
     monkeypatch.setattr(owned_module, "WorkerInferenceClient", lambda: FakeWorkerClient())
+    seed_active_owned_binding_and_route(monkeypatch, tmp_path)
     NodeTrustStore().register("node-owned-1", "secret", trust_score=0.9)
     runtime_registry.clear()
     client = TestClient(app)

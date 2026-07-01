@@ -17,6 +17,7 @@ def test_testnet_v0_check_passes(tmp_path) -> None:
         "proof_verification_records_result",
         "build_artifact_chunk_manifest",
         "register_artifact_binding",
+        "publish_owned_chat_route",
         "owned_chat_returns_validated_worker_answer",
         "owned_runtime_dashboard_audits_chain",
     ]

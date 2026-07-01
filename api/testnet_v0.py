@@ -14,6 +14,7 @@ from api.chunk_manifest import build_manifest, sha256_bytes
 from api.node_trust import NodeTrustStore
 from api.parcel_store import ParcelStore
 from api.runtime_forwarder import RuntimeEndpointStore
+from api.route_book import RouteBook
 from api.runtime_store import RuntimeStore
 from api.storage import SchedulerStore
 from api.wio import signed_result
@@ -43,6 +44,7 @@ def isolated_runtime(work_dir: str | Path | None = None) -> Iterator[Path]:
     original_secrets = os.environ.get("AILOVANTA_NODE_SECRETS_JSON")
     original_require_owned = os.environ.get("AILOVANTA_REQUIRE_OWNED_MODEL")
     original_binding_path = os.environ.get("AILOVANTA_ARTIFACT_BINDINGS_PATH")
+    original_route_book_path = os.environ.get("AILOVANTA_ROUTE_BOOK_PATH")
     original_endpoint_path = os.environ.get("AILOVANTA_RUNTIME_ENDPOINTS_PATH")
     original_validation_path = os.environ.get("AILOVANTA_WORKER_VALIDATION_PATH")
     original_reputation_path = os.environ.get("AILOVANTA_REPUTATION_PATH")
@@ -53,6 +55,7 @@ def isolated_runtime(work_dir: str | Path | None = None) -> Iterator[Path]:
         os.environ["AILOVANTA_NODE_TRUST_PATH"] = str(root / "node_trust.sqlite3")
         os.environ["AILOVANTA_REQUIRE_OWNED_MODEL"] = "true"
         os.environ["AILOVANTA_ARTIFACT_BINDINGS_PATH"] = str(root / "artifact_bindings.sqlite3")
+        os.environ["AILOVANTA_ROUTE_BOOK_PATH"] = str(root / "route_book.sqlite3")
         os.environ["AILOVANTA_RUNTIME_ENDPOINTS_PATH"] = str(root / "runtime_endpoints.json")
         os.environ["AILOVANTA_WORKER_VALIDATION_PATH"] = str(root / "worker_validations.sqlite3")
         os.environ["AILOVANTA_REPUTATION_PATH"] = str(root / "scheduler.sqlite3")
@@ -72,6 +75,7 @@ def isolated_runtime(work_dir: str | Path | None = None) -> Iterator[Path]:
         for key, value in {
             "AILOVANTA_REQUIRE_OWNED_MODEL": original_require_owned,
             "AILOVANTA_ARTIFACT_BINDINGS_PATH": original_binding_path,
+            "AILOVANTA_ROUTE_BOOK_PATH": original_route_book_path,
             "AILOVANTA_RUNTIME_ENDPOINTS_PATH": original_endpoint_path,
             "AILOVANTA_WORKER_VALIDATION_PATH": original_validation_path,
             "AILOVANTA_REPUTATION_PATH": original_reputation_path,
@@ -231,6 +235,14 @@ def run_testnet_v0_check(work_dir: str | Path | None = None) -> dict[str, Any]:
             metadata={"artifact_manifest": manifest},
         )
         checks.append(check_item("register_artifact_binding", binding.get("runtime_manifest_hash") == "sha256:testnetv0model" and binding.get("status") == "active", binding))
+        owned_route = RouteBook(root / "route_book.sqlite3").set_active(
+            "owned-chat/default",
+            model_key,
+            binding_id=binding["binding_id"],
+            reason="testnet_v0_artifact_binding_ready",
+            metadata={"runtime_id": runtime_id, "node_id": node_id, "artifact_hash": binding["artifact_hash"]},
+        )
+        checks.append(check_item("publish_owned_chat_route", owned_route.get("binding_id") == binding["binding_id"] and owned_route.get("status") == "active", owned_route))
 
         chat_response = client.post("/ailovanta/v1/chat", json={"prompt": "test owned chat", "model_id": model_id, "version": version})
         chat_body = chat_response.json()

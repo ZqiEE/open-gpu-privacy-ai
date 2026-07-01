@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from api.artifact_binding import ArtifactBindingStore
 from api.node_trust import NodeTrustStore
+from api.route_book import RouteBook
 from api.runtime_forwarder import RuntimeEndpointStore
 from api.runtime_router import ModelManifest, RuntimeNodeProfile
 from api.runtime_store import RuntimeStore
@@ -91,6 +92,13 @@ def bootstrap_owned_runtime(
             status="active",
             metadata={"source": "bootstrap_owned_runtime", "runtime_id": runtime_id, "node_id": node_id},
         )
+    route = RouteBook(data_root / "route_book.sqlite3").set_active(
+        "owned-chat/default",
+        f"{model_id}:{version}",
+        binding_id=binding.get("binding_id"),
+        reason="bootstrap_owned_runtime",
+        metadata={"source": "bootstrap_owned_runtime", "runtime_id": runtime_id, "node_id": node_id},
+    )
     return {
         "ok": True,
         "model": model,
@@ -98,6 +106,7 @@ def bootstrap_owned_runtime(
         "node_trust": trust,
         "endpoint": endpoint,
         "binding": binding,
+        "route": route,
         "checkpoint_ref": checkpoint_ref,
     }
 

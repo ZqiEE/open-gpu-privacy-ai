@@ -6,6 +6,7 @@ from typing import Any
 from typing import Literal
 
 from api.artifact_binding import ArtifactBindingStore
+from api.route_book import RouteBook
 from api.runtime_ref import check_runtime_ref
 from api.worker_transport import WorkerInferenceClient, WorkerInferenceRequest, WorkerInferenceUnavailable
 
@@ -39,10 +40,12 @@ class OwnedModelUnavailable(RuntimeError):
 
 
 class OwnedModelRuntime:
-    def __init__(self, runtime_registry, worker_client: WorkerInferenceClient | None = None, binding_store: ArtifactBindingStore | None = None) -> None:
+    def __init__(self, runtime_registry, worker_client: WorkerInferenceClient | None = None, binding_store: ArtifactBindingStore | None = None, route_book: RouteBook | None = None, route_key: str = "owned-chat/default") -> None:
         self.runtime_registry = runtime_registry
         self.worker_client = worker_client or WorkerInferenceClient()
         self.binding_store = binding_store or ArtifactBindingStore(os.getenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", "runtime_data/artifact_bindings.sqlite3"))
+        self.route_book = route_book or RouteBook(os.getenv("AILOVANTA_ROUTE_BOOK_PATH", "runtime_data/route_book.sqlite3"))
+        self.route_key = route_key
 
     def route(self, request: OwnedModelRequest) -> dict:
         from api.runtime_router import RuntimeRequest
@@ -67,7 +70,15 @@ class OwnedModelRuntime:
     def assert_binding_usable(self, request: OwnedModelRequest) -> dict | None:
         binding = self.active_binding(request)
         if not binding:
-            return None
+            raise OwnedModelUnavailable("missing active artifact binding for owned model")
+        route = self.route_book.active(self.route_key)
+        if not route:
+            raise OwnedModelUnavailable("owned route is not active: " + self.route_key)
+        if route.get("model_key") != binding.get("model_key"):
+            raise OwnedModelUnavailable("owned route model_key does not match active binding")
+        route_binding_id = str(route.get("binding_id") or "")
+        if route_binding_id and route_binding_id != str(binding.get("binding_id") or ""):
+            raise OwnedModelUnavailable("owned route binding_id does not match active binding")
         report = check_runtime_ref(binding)
         if not report.get("ready"):
             raise OwnedModelUnavailable("artifact binding is not locally reachable: " + str(report.get("reason")))
