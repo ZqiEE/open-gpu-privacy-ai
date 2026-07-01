@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from api.foundation_job_export import export_foundation_job
+from api.foundation_result_finalize import finalize_foundation_result_file
 from api.foundation_result_import import import_foundation_result_file
 from api.learning_foundation import create_job_from_latest_pack
 from api.model_monitor import ModelMonitorStore
@@ -173,7 +174,7 @@ def run_guarded_learning_pipeline(
         check=True,
     )
 
-    foundation_result = json.loads(result_path.read_text(encoding="utf-8"))
+    foundation_result = finalize_foundation_result_file(result_path, write=True)
     eval_payload = build_eval_payload(foundation_result, baseline_model=baseline_model, baseline_score=baseline_score)
     gate_result = run_core_eval_gate(core_root, eval_payload, gate_dir)
     decision = (gate_result.get("decision") or {}).get("decision")
@@ -186,7 +187,7 @@ def run_guarded_learning_pipeline(
             candidate_model=eval_payload["candidate_model"],
             baseline_model=baseline_model,
             artifact_hash=artifact.get("artifact_hash"),
-            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path), "execute_checkpoints": execute_checkpoints, "backend_env": backend_env},
+            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path), "execute_checkpoints": execute_checkpoints, "backend_env": backend_env, "finalized_by": artifact.get("metadata", {}).get("finalized_by")},
         )
         monitor.record_metric(
             eval_payload["candidate_model"],
@@ -215,6 +216,7 @@ def run_guarded_learning_pipeline(
         "execute_checkpoints": execute_checkpoints,
         "checkpoint_output_root": str(checkpoint_root) if execute_checkpoints else None,
         "backend_env": backend_env,
+        "finalized_result": foundation_result,
         "eval_payload": eval_payload,
         "gate": gate_result,
         "shadow": shadow,
